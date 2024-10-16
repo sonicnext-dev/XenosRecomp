@@ -940,6 +940,10 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData)
     println("CONSTANT_BUFFER(Constants, b{})", isPixelShader ? 1 : 0);
     out += "{\n";
 
+    bool isMetaInstancer = false;
+    bool hasIndexCount = false;
+    bool isCsdShader = false;
+
     for (uint32_t i = 0; i < constantTableContainer->constantTable.constants; i++)
     {
         const auto constantInfo = reinterpret_cast<const ConstantInfo*>(
@@ -949,8 +953,19 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData)
 
         if (constantInfo->registerSet == RegisterSet::Float4)
         {
-            print("\t[[vk::offset({})]] float4 {}", constantInfo->registerIndex * 16, 
-                reinterpret_cast<const char*>(constantTableData + constantInfo->name));
+            const char* constantName = reinterpret_cast<const char*>(constantTableData + constantInfo->name);
+
+            if (!isPixelShader)
+            {
+                if (strcmp(constantName, "g_InstanceTypes") == 0)
+                    isMetaInstancer = true;
+                else if (strcmp(constantName, "g_IndexCount") == 0)
+                    hasIndexCount = true;
+                else if (strcmp(constantName, "g_Z") == 0)
+                    isCsdShader = true;
+            }
+
+            print("\t[[vk::offset({})]] float4 {}", constantInfo->registerIndex * 16, constantName);
 
             if (constantInfo->registerCount > 1)
                 print("[{}]", constantInfo->registerCount.get());
@@ -1040,12 +1055,21 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData)
 
             value = vertexShader->vertexElementsAndInterpolators[vertexShader->field18 + i];
 
-            println("\tin {0} i{1}{2} : {3}{2},", USAGE_TYPES[uint32_t(vertexElement.usage)], USAGE_VARIABLES[uint32_t(vertexElement.usage)],
+            const char* usageType = USAGE_TYPES[uint32_t(vertexElement.usage)];
+            if (isMetaInstancer && vertexElement.usage == DeclUsage::TexCoord && vertexElement.usageIndex == 2)
+                usageType = "uint4";
+
+            println("\tin {0} i{1}{2} : {3}{2},", usageType, USAGE_VARIABLES[uint32_t(vertexElement.usage)],
                 uint32_t(vertexElement.usageIndex), USAGE_SEMANTICS[uint32_t(vertexElement.usage)]);
 
             vertexElements.emplace(uint32_t(vertexElement.address), vertexElement);
         }
 
+        if (hasIndexCount)
+        {
+            out += "\tin uint iVertexId : SV_VertexID,\n";
+            out += "\tin uint iInstanceId : SV_InstanceID,\n";
+        }
         out += "\tout float4 oPos : SV_Position";
 
         for (auto& [usage, usageIndex] : INTERPOLATORS)
@@ -1150,6 +1174,10 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData)
             if (isPixelShader && i == ((shader->fieldC >> 8) & 0xFF))
             {
                 out += "float4((iPos.xy - 0.5) * float2(iFace ? 1.0 : -1.0, 1.0), 0.0, 0.0);\n";
+            }
+            else if (!isPixelShader && hasIndexCount && i == 0)
+            {
+                out += "float4(iVertexId + GET_CONSTANT(g_IndexCount).x * iInstanceId, 0.0, 0.0, 0.0);\n";
             }
             else
             {
@@ -1347,6 +1375,15 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData)
     out += "\t\t}\n";
     out += "\t\tbreak;\n";
     out += "\t}\n";
+
+    if (isPixelShader)
+    {
+        out += "\tif (GET_SHARED_CONSTANT(g_AlphaTestMode) != 0) clip(oC0.w - GET_SHARED_CONSTANT(g_AlphaThreshold));\n";
+    }
+    else if (isCsdShader)
+    {
+        out += "\toPos.xy += float2(GET_CONSTANT(g_ViewportSize.z), -GET_CONSTANT(g_ViewportSize.w));\n";
+    }
 
     out += "}";
 }
