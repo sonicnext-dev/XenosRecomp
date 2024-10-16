@@ -10,7 +10,13 @@
             "buildCommandArgs": "",
             "ctestCommandArgs": "",
             "inheritEnvironments": [ "clang_cl_x64_x64" ],
-            "variables": []
+            "variables": [
+                {
+                    "name": "VCPKG_TARGET_TRIPLET",
+                    "value": "x64-windows",
+                    "type": "STRING"
+                }
+            ]
         },
         {
             "name": "x64-Clang-Release",
@@ -22,7 +28,13 @@
             "buildCommandArgs": "",
             "ctestCommandArgs": "",
             "inheritEnvironments": [ "clang_cl_x64_x64" ],
-            "variables": []
+            "variables": [
+                {
+                    "name": "VCPKG_TARGET_TRIPLET",
+                    "value": "x64-windows",
+                    "type": "STRING"
+                }
+            ]
         }
     ]
 }
