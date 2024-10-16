@@ -9,8 +9,10 @@
 #include <execution>
 #include <filesystem>
 #include <format>
+#include <map>
 #include <string>
 #include <unordered_map>
+#include <xxhash.h>
 
 template<typename T>
 struct be

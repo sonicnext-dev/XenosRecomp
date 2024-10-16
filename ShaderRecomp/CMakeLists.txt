@@ -16,7 +16,11 @@ add_executable(ShaderRecomp
     shader_recompiler.h)
 
 find_package(directx-dxc CONFIG REQUIRED)
-target_link_libraries(ShaderRecomp PRIVATE Microsoft::DirectXShaderCompiler)
+find_package(xxhash CONFIG REQUIRED)
+
+target_link_libraries(ShaderRecomp PRIVATE
+    Microsoft::DirectXShaderCompiler
+    xxHash::xxhash)
 
 target_precompile_headers(ShaderRecomp PRIVATE pch.h)
 
