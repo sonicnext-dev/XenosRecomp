@@ -124,6 +124,16 @@ void ShaderRecompiler::printDstSwizzle01(uint32_t dstRegister, uint32_t dstSwizz
 
 void ShaderRecompiler::recompile(const VertexFetchInstruction& instr, uint32_t address)
 {
+    if (instr.isPredicated)
+    {
+        indent();
+        println("if ({}p0)", instr.predicateCondition ? "" : "!");
+
+        indent();
+        out += "{\n";
+        ++indentation;
+    }
+
     indent();
     print("r{}.", instr.dstRegister);
     printDstSwizzle(instr.dstSwizzle, false);
@@ -167,12 +177,29 @@ void ShaderRecompiler::recompile(const VertexFetchInstruction& instr, uint32_t a
     out += ";\n";
 
     printDstSwizzle01(instr.dstRegister, instr.dstSwizzle);
+
+    if (instr.isPredicated)
+    {
+        --indentation;
+        indent();
+        out += "}\n";
+    }
 }
 
 void ShaderRecompiler::recompile(const TextureFetchInstruction& instr)
 {
     if (instr.opcode != FetchOpcode::TextureFetch)
         return;
+
+    if (instr.isPredicated)
+    {
+        indent();
+        println("if ({}p0)", instr.predCondition ? "" : "!");
+
+        indent();
+        out += "{\n";
+        ++indentation;
+    }
 
     indent();
     print("r{}.", instr.dstRegister);
@@ -219,6 +246,13 @@ void ShaderRecompiler::recompile(const TextureFetchInstruction& instr)
     out += ";\n";
 
     printDstSwizzle01(instr.dstRegister, instr.dstSwizzle);
+
+    if (instr.isPredicated)
+    {
+        --indentation;
+        indent();
+        out += "}\n";
+    }
 }
 
 void ShaderRecompiler::recompile(const AluInstruction& instr)
@@ -226,7 +260,7 @@ void ShaderRecompiler::recompile(const AluInstruction& instr)
     if (instr.isPredicated)
     {
         indent();
-        println("if ({}p0)", instr.predicateCondition ? "!" : "");
+        println("if ({}p0)", instr.predicateCondition ? "" : "!");
 
         indent(); 
         out += "{\n";
@@ -815,6 +849,18 @@ void ShaderRecompiler::recompile(const AluInstruction& instr)
             out += ')';
 
         out += ";\n";
+
+        switch (instr.scalarOpcode)
+        {
+        case AluScalarOpcode::MaxAs:
+            indent();
+            println("a0 = (int)clamp(floor({} + 0.5), -256.0, 255.0);", op(SCALAR_0));
+            break;     
+        case AluScalarOpcode::MaxAsf:
+            indent();
+            println("a0 = (int)clamp(floor({}), -256.0, 255.0);", op(SCALAR_0));
+            break;
+        }
     }
 
     uint32_t scalarWriteMask = instr.scalarWriteMask;
@@ -1219,7 +1265,7 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData)
                 {
                     if (cfInstr.condJmp.isPredicated)
                     {
-                        println("\t\t\tif ({}p0)", cfInstr.condJmp.condition ? "!" : "");
+                        println("\t\t\tif ({}p0)", cfInstr.condJmp.condition ? "" : "!");
                     }
                     else
                     {
