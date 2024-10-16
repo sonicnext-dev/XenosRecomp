@@ -224,7 +224,7 @@ void ShaderRecompiler::recompile(const TextureFetchInstruction& instr)
         break;
     case TextureDimension::TextureCube:
         out += "Cube(";
-        componentCount = 4;
+        componentCount = 3;
         break;
     }
 
@@ -238,6 +238,9 @@ void ShaderRecompiler::recompile(const TextureFetchInstruction& instr)
 
     for (size_t i = 0; i < componentCount; i++)
         out += SWIZZLES[((instr.srcSwizzle >> (i * 2))) & 0x3];
+
+    if (instr.dimension == TextureDimension::TextureCube)
+        out += ", cubeMapData";
 
     out += ").";
 
@@ -402,6 +405,7 @@ void ShaderRecompiler::recompile(const AluInstruction& instr)
                     break;
 
                 case AluVectorOpcode::Dp4:
+                case AluVectorOpcode::Max4:
                     mask = 0b1111;
                     break;
 
@@ -502,6 +506,35 @@ void ShaderRecompiler::recompile(const AluInstruction& instr)
         }
     }
 
+    if (instr.vectorOpcode >= AluVectorOpcode::SetpEqPush && instr.vectorOpcode <= AluVectorOpcode::SetpGePush)
+    {
+        indent();
+        print("p0 = {} == 0.0 && {} ", op(VECTOR_0), op(VECTOR_1));
+
+        switch (instr.vectorOpcode)
+        {
+        case AluVectorOpcode::SetpEqPush:
+            out += "==";
+            break;
+        case AluVectorOpcode::SetpNePush:
+            out += "!=";
+            break;
+        case AluVectorOpcode::SetpGtPush:
+            out += ">";
+            break;
+        case AluVectorOpcode::SetpGePush:
+            out += ">=";
+            break;
+        }
+
+        out += " 0.0;\n";
+    }
+    else if (instr.vectorOpcode >= AluVectorOpcode::MaxA)
+    {
+        indent();
+        println("a0 = (int)clamp(floor(({}).w + 0.5), -256.0, 255.0);", op(VECTOR_0));
+    }
+
     uint32_t vectorWriteMask = instr.vectorWriteMask;
     if (instr.exportData)
         vectorWriteMask &= ~instr.scalarWriteMask;
@@ -541,6 +574,7 @@ void ShaderRecompiler::recompile(const AluInstruction& instr)
             break;
 
         case AluVectorOpcode::Max:
+        case AluVectorOpcode::MaxA:
             print("max({}, {})", op(VECTOR_0), op(VECTOR_1));
             break;
 
@@ -602,11 +636,11 @@ void ShaderRecompiler::recompile(const AluInstruction& instr)
             break;
 
         case AluVectorOpcode::Cube:
-            out += "0.0";
+            print("cube(r{}, cubeMapData)", instr.src1Register);
             break;
 
         case AluVectorOpcode::Max4:
-            assert(false);
+            print("max4({})", op(VECTOR_0));
             break;
 
         case AluVectorOpcode::SetpEqPush:
@@ -633,8 +667,7 @@ void ShaderRecompiler::recompile(const AluInstruction& instr)
             break;
 
         case AluVectorOpcode::Dst:
-        case AluVectorOpcode::MaxA:
-            assert(false);
+            print("dst({}, {})", op(VECTOR_0), op(VECTOR_1));
             break;
         }
 
@@ -678,8 +711,11 @@ void ShaderRecompiler::recompile(const AluInstruction& instr)
                 break;
 
             case AluScalarOpcode::SetpClr:
+                out += "false";
+                break;
+
             case AluScalarOpcode::SetpRstr:
-                assert(false);
+                print("{} == 0.0", op(SCALAR_0));
                 break;
             }
 
@@ -754,19 +790,19 @@ void ShaderRecompiler::recompile(const AluInstruction& instr)
 
         case AluScalarOpcode::Logc:
         case AluScalarOpcode::Log:
-            print("log2({})", op(SCALAR_0));
+            print("clamp(log2({}), FLT_MIN, FLT_MAX)", op(SCALAR_0));
             break;
 
         case AluScalarOpcode::Rcpc:
         case AluScalarOpcode::Rcpf:
         case AluScalarOpcode::Rcp:
-            print("rcp({})", op(SCALAR_0));
+            print("clamp(rcp({}), FLT_MIN, FLT_MAX)", op(SCALAR_0));
             break;
 
         case AluScalarOpcode::Rsqc:
         case AluScalarOpcode::Rsqf:
         case AluScalarOpcode::Rsq:
-            print("rsqrt({})", op(SCALAR_0));
+            print("clamp(rsqrt({}), FLT_MIN, FLT_MAX)", op(SCALAR_0));
             break;
 
         case AluScalarOpcode::Subs:
@@ -785,7 +821,7 @@ void ShaderRecompiler::recompile(const AluInstruction& instr)
             break;
 
         case AluScalarOpcode::SetpInv:
-            print("{} == 0.0 ? 1.0 : {}", op(SCALAR_0), op(SCALAR_0));
+            print("{0} == 0.0 ? 1.0 : {0}", op(SCALAR_0));
             break;
 
         case AluScalarOpcode::SetpPop:
@@ -793,8 +829,11 @@ void ShaderRecompiler::recompile(const AluInstruction& instr)
             break;
 
         case AluScalarOpcode::SetpClr:
+            out += "FLT_MAX";
+            break;
+
         case AluScalarOpcode::SetpRstr:
-            assert(false);
+            print("p0 ? 0.0 : {}", op(SCALAR_0));
             break;
 
         case AluScalarOpcode::KillsEq:
@@ -1190,6 +1229,8 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData)
     out += "\tint aL = 0;\n";
     out += "\tbool p0 = false;\n";
     out += "\tfloat ps = 0.0;\n";
+    if (isPixelShader)
+        out += "\tCubeMapData cubeMapData = (CubeMapData)0;\n";
 
     out += "\n\tuint pc = 0;\n";
     out += "\twhile (true)\n";

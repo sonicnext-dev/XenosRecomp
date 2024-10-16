@@ -52,9 +52,15 @@ float4 tfetch3D(uint resourceDescriptorIndex, uint samplerDescriptorIndex, float
     return g_Texture3DDescriptorHeap[resourceDescriptorIndex].Sample(g_SamplerDescriptorHeap[samplerDescriptorIndex], texCoord);
 }
 
-float4 tfetchCube(uint resourceDescriptorIndex, uint samplerDescriptorIndex, float4 texCoord)
+struct CubeMapData
 {
-    return g_TextureCubeDescriptorHeap[resourceDescriptorIndex].Sample(g_SamplerDescriptorHeap[samplerDescriptorIndex], texCoord.xyz);
+    float3 cubeMapDirections[2];
+    uint cubeMapIndex;
+};
+
+float4 tfetchCube(uint resourceDescriptorIndex, uint samplerDescriptorIndex, float3 texCoord, inout CubeMapData cubeMapData)
+{
+    return g_TextureCubeDescriptorHeap[resourceDescriptorIndex].Sample(g_SamplerDescriptorHeap[samplerDescriptorIndex], cubeMapData.cubeMapDirections[texCoord.z]);
 }
 
 float4 tfetchR11G11B10(uint inputLayoutFlags, uint4 value)
@@ -76,5 +82,29 @@ float4 tfetchR11G11B10(uint inputLayoutFlags, uint4 value)
 float4 tfetchTexcoord(uint swappedTexcoords, float4 value, uint semanticIndex)
 {
     return (swappedTexcoords & (1 << semanticIndex)) != 0 ? value.yxwz : value;
+}
+
+float4 cube(float4 value, inout CubeMapData cubeMapData)
+{
+    uint index = cubeMapData.cubeMapIndex;
+    cubeMapData.cubeMapDirections[index] = value.xyz;
+    ++cubeMapData.cubeMapIndex;
+    
+    return float4(0.0, 0.0, 0.0, index);
+}
+
+float4 dst(float4 src0, float4 src1)
+{
+    float4 dest;
+    dest.x = 1.0;
+    dest.y = src0.y * src1.y;
+    dest.z = src0.z;
+    dest.w = src1.w;
+    return dest;
+}
+
+float4 max4(float4 src0)
+{
+    return max(max(src0.x, src0.y), max(src0.z, src0.w));
 }
 
