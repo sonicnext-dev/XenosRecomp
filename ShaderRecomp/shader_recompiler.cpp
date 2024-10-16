@@ -1099,7 +1099,17 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData)
     for (size_t i = 0; i < 32; i++)
     {
         if (!printedRegisters[i])
-            println("\tfloat4 r{} = 0.0;", i);
+        {
+            print("\tfloat4 r{} = ", i);
+            if (isPixelShader && i == ((shader->fieldC >> 8) & 0xFF))
+            {
+                out += "float4((iPos.xy - 0.5) * float2(iFace ? 1.0 : -1.0, 1.0), 0.0, 0.0);\n";
+            }
+            else
+            {
+                out += "0.0;\n";
+            }
+        }
     }
 
     out += "\tint a0 = 0;\n";

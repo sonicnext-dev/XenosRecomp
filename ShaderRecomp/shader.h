@@ -31,7 +31,7 @@ struct Shader
     be<uint32_t> physicalOffset;
     be<uint32_t> size;
     be<uint32_t> field8;
-    be<uint32_t> fieldC;
+    be<uint32_t> fieldC; // svPos register: (fieldC >> 8) & 0xFF
     be<uint32_t> field10;
     be<uint32_t> interpolatorInfo; // interpolator count: (interpolatorInfo >> 5) & 0x1F
 };
