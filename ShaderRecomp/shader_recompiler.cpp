@@ -1232,32 +1232,27 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData)
     if (isPixelShader)
         out += "\tCubeMapData cubeMapData = (CubeMapData)0;\n";
 
-    out += "\n\tuint pc = 0;\n";
-    out += "\twhile (true)\n";
-    out += "\t{\n";
-    out += "\t\tswitch (pc)\n";
-    out += "\t\t{\n";
-
     const be<uint32_t>* code = reinterpret_cast<const be<uint32_t>*>(shaderData + shaderContainer->virtualSize + shader->physicalOffset);
 
-    auto controlFlowCode = code;
-    uint32_t pc = 0;
-    uint32_t minInstrAddress = shader->size;
-
-    while (pc * 6 < minInstrAddress)
+    union
     {
-        union
+        ControlFlowInstruction controlFlow[2];
+        struct
         {
-            ControlFlowInstruction controlFlow[2];
-            struct
-            {
-                uint32_t code0;
-                uint32_t code1;
-                uint32_t code2;
-                uint32_t code3;
-            };
+            uint32_t code0;
+            uint32_t code1;
+            uint32_t code2;
+            uint32_t code3;
         };
+    };
 
+    auto controlFlowCode = code;
+    uint32_t instrAddress = 0;
+    uint32_t instrSize = shader->size;
+    bool simpleControlFlow = true;
+
+    while (instrAddress < instrSize)
+    {
         code0 = controlFlowCode[0];
         code1 = controlFlowCode[1] & 0xFFFF;
         code2 = (controlFlowCode[1] >> 16) | (controlFlowCode[2] << 16);
@@ -1265,27 +1260,108 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData)
 
         for (auto& cfInstr : controlFlow)
         {
-            indentation = 3;
-            println("\t\tcase {}:", pc);
+            uint32_t address = 0;
+
+            switch (cfInstr.opcode)
+            {
+            case ControlFlowOpcode::Exec:
+            case ControlFlowOpcode::ExecEnd:
+                address = cfInstr.exec.address;
+                break;
+
+            case ControlFlowOpcode::CondExec:
+            case ControlFlowOpcode::CondExecEnd:
+            case ControlFlowOpcode::CondExecPredClean:
+            case ControlFlowOpcode::CondExecPredCleanEnd:
+                address = cfInstr.condExec.address;
+                break;
+
+            case ControlFlowOpcode::CondExecPred:
+            case ControlFlowOpcode::CondExecPredEnd:
+                address = cfInstr.condExecPred.address;
+                break;
+
+            case ControlFlowOpcode::CondJmp:
+            {
+                if (cfInstr.condJmp.isUnconditional || cfInstr.condJmp.direction)
+                    simpleControlFlow = false;
+                else
+                    ++ifEndLabels[cfInstr.condJmp.address];
+
+                break;
+            }
+            }
+
+            if (address != 0)
+                instrSize = std::min<uint32_t>(instrSize, address * 12);
+        }
+
+        controlFlowCode += 3;
+        instrAddress += 12;
+    }
+
+    if (simpleControlFlow)
+    {
+        out += '\n';
+        indentation = 1;
+    }
+    else
+    {
+        out += "\n\tuint pc = 0;\n";
+        out += "\twhile (true)\n";
+        out += "\t{\n";
+        out += "\t\tswitch (pc)\n";
+        out += "\t\t{\n";
+    }
+
+    controlFlowCode = code;
+    instrAddress = 0;
+    uint32_t pc = 0;
+
+    while (instrAddress < instrSize)
+    {
+        code0 = controlFlowCode[0];
+        code1 = controlFlowCode[1] & 0xFFFF;
+        code2 = (controlFlowCode[1] >> 16) | (controlFlowCode[2] << 16);
+        code3 = controlFlowCode[2] >> 16;
+
+        for (auto& cfInstr : controlFlow)
+        {
+            if (!simpleControlFlow)
+            {
+                indentation = 3;
+                println("\t\tcase {}:", pc);
+            }
+            else
+            {
+                auto findResult = ifEndLabels.find(pc);
+                if (findResult != ifEndLabels.end())
+                {
+                    for (uint32_t i = 0; i < findResult->second; i++)
+                    {
+                        --indentation;
+                        indent();
+                        out += "}\n";
+                    }
+                }
+            }
+
             ++pc;
 
             uint32_t address = 0;
             uint32_t count = 0;
             uint32_t sequence = 0;
-            bool shouldBreak = false;
+            bool shouldReturn = false;
             bool shouldCloseCurlyBracket = false;
 
             switch (cfInstr.opcode)
             {
-            case ControlFlowOpcode::Nop:
-                break;
-
             case ControlFlowOpcode::Exec:
             case ControlFlowOpcode::ExecEnd:
                 address = cfInstr.exec.address;
                 count = cfInstr.exec.count;
                 sequence = cfInstr.exec.sequence;
-                shouldBreak = (cfInstr.opcode == ControlFlowOpcode::ExecEnd);
+                shouldReturn = (cfInstr.opcode == ControlFlowOpcode::ExecEnd);
                 break;
 
             case ControlFlowOpcode::CondExec:
@@ -1295,7 +1371,7 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData)
                 address = cfInstr.condExec.address;
                 count = cfInstr.condExec.count;
                 sequence = cfInstr.condExec.sequence;
-                shouldBreak = (cfInstr.opcode == ControlFlowOpcode::CondExecEnd || cfInstr.opcode == ControlFlowOpcode::CondExecEnd);
+                shouldReturn = (cfInstr.opcode == ControlFlowOpcode::CondExecEnd || cfInstr.opcode == ControlFlowOpcode::CondExecEnd);
                 break;
 
             case ControlFlowOpcode::CondExecPred:
@@ -1303,127 +1379,163 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData)
                 address = cfInstr.condExecPred.address;
                 count = cfInstr.condExecPred.count;
                 sequence = cfInstr.condExecPred.sequence;
-                shouldBreak = (cfInstr.opcode == ControlFlowOpcode::CondExecPredEnd);
+                shouldReturn = (cfInstr.opcode == ControlFlowOpcode::CondExecPredEnd);
                 break;
 
             case ControlFlowOpcode::LoopStart:
-                out += "\t\t\taL = 0;\n";
+                if (simpleControlFlow)
+                {
+                    indent();
+                    println("for (aL = 0; aL < i{}.x; aL++)", uint32_t(cfInstr.loopStart.loopId));
+                    indent();
+                    out += "{\n";
+                    ++indentation;
+                }
+                else 
+                {
+                    out += "\t\t\taL = 0;\n";
+                }
                 break;
 
             case ControlFlowOpcode::LoopEnd:
-                out += "\t\t\t++aL;\n";
-                println("\t\t\tif (aL < i{}.x)", uint32_t(cfInstr.loopEnd.loopId));
-                out += "\t\t\t{\n";
-                println("\t\t\t\tpc = {};", uint32_t(cfInstr.loopEnd.address));
-                out += "\t\t\t\tcontinue;\n";
-                out += "\t\t\t}\n";
-                break;
-
-            case ControlFlowOpcode::CondCall:
-            case ControlFlowOpcode::Return:
+                if (simpleControlFlow)
+                {
+                    --indentation;
+                    indent();
+                    out += "}\n";
+                }
+                else
+                {
+                    out += "\t\t\t++aL;\n";
+                    println("\t\t\tif (aL < i{}.x)", uint32_t(cfInstr.loopEnd.loopId));
+                    out += "\t\t\t{\n";
+                    println("\t\t\t\tpc = {};", uint32_t(cfInstr.loopEnd.address));
+                    out += "\t\t\t\tcontinue;\n";
+                    out += "\t\t\t}\n";
+                }
                 break;
 
             case ControlFlowOpcode::CondJmp:
             {
                 if (cfInstr.condJmp.isUnconditional)
                 {
+                    assert(!simpleControlFlow);
                     println("\t\t\tpc = {};", uint32_t(cfInstr.condJmp.address));
                     out += "\t\t\tcontinue;\n";
                 }
                 else
                 {
+                    indent();
                     if (cfInstr.condJmp.isPredicated)
                     {
-                        println("\t\t\tif ({}p0)", cfInstr.condJmp.condition ? "" : "!");
+                        println("if ({}p0)", cfInstr.condJmp.condition ^ simpleControlFlow ? "" : "!");
                     }
                     else
                     {
                         auto findResult = boolConstants.find(cfInstr.condJmp.boolAddress);
                         if (findResult != boolConstants.end())
-                            println("\t\t\tif ((GET_SHARED_CONSTANT(g_Booleans) & {}) {}= 0)", findResult->second, cfInstr.condJmp.condition ? "!" : "=");
+                            println("if ((GET_SHARED_CONSTANT(g_Booleans) & {}) {}= 0)", findResult->second, cfInstr.condJmp.condition ^ simpleControlFlow ? "!" : "=");
                         else
-                            println("\t\t\tif (b{} {}= 0)", uint32_t(cfInstr.condJmp.boolAddress), cfInstr.condJmp.condition ? "!" : "=");
+                            println("if (b{} {}= 0)", uint32_t(cfInstr.condJmp.boolAddress), cfInstr.condJmp.condition ^ simpleControlFlow ? "!" : "=");
                     }
 
-                    out += "\t\t\t{\n";
-                    println("\t\t\t\tpc = {};", uint32_t(cfInstr.condJmp.address));
-                    out += "\t\t\t\tcontinue;\n";
-                    out += "\t\t\t}\n";
-                }
-                break;
-            }
-
-            case ControlFlowOpcode::Alloc:
-            case ControlFlowOpcode::MarkVsFetchDone:
-                break;
-            }
-
-            if (count != 0)
-            {
-                minInstrAddress = std::min<uint32_t>(minInstrAddress, address * 12);
-                auto instructionCode = code + address * 3;
-
-                for (uint32_t i = 0; i < count; i++)
-                {
-                    union
+                    if (simpleControlFlow)
                     {
-                        VertexFetchInstruction vertexFetch;
-                        TextureFetchInstruction textureFetch;
-                        AluInstruction alu;
-                        struct
-                        {
-                            uint32_t code0;
-                            uint32_t code1;
-                            uint32_t code2;
-                        };
-                    };
-
-                    code0 = instructionCode[0];
-                    code1 = instructionCode[1];
-                    code2 = instructionCode[2];
-
-                    if ((sequence & 0x1) != 0)
-                    {
-                        if (vertexFetch.opcode == FetchOpcode::VertexFetch)
-                            recompile(vertexFetch, address + i);
-                        else
-                            recompile(textureFetch);
+                        indent();
+                        out += "{\n";
+                        ++indentation;
                     }
                     else
                     {
-                        recompile(alu);
+                        out += "\t\t\t{\n";
+                        println("\t\t\t\tpc = {};", uint32_t(cfInstr.condJmp.address));
+                        out += "\t\t\t\tcontinue;\n";
+                        out += "\t\t\t}\n";
                     }
-
-                    sequence >>= 2;
-                    instructionCode += 3;
                 }
+                break;
+            }
             }
 
-            if (shouldBreak)
-                out += "\t\t\tbreak;\n";
+            auto instructionCode = code + address * 3;
+            
+            for (uint32_t i = 0; i < count; i++)
+            {
+                union
+                {
+                    VertexFetchInstruction vertexFetch;
+                    TextureFetchInstruction textureFetch;
+                    AluInstruction alu;
+                    struct
+                    {
+                        uint32_t code0;
+                        uint32_t code1;
+                        uint32_t code2;
+                    };
+                };
+            
+                code0 = instructionCode[0];
+                code1 = instructionCode[1];
+                code2 = instructionCode[2];
+            
+                if ((sequence & 0x1) != 0)
+                {
+                    if (vertexFetch.opcode == FetchOpcode::VertexFetch)
+                        recompile(vertexFetch, address + i);
+                    else
+                        recompile(textureFetch);
+                }
+                else
+                {
+                    recompile(alu);
+                }
+            
+                sequence >>= 2;
+                instructionCode += 3;
+            }
+
+            if (shouldReturn)
+            {
+                if (isPixelShader)
+                {
+                    indent();
+                    out += "if (GET_SHARED_CONSTANT(g_AlphaTestMode) != 0) clip(oC0.w - GET_SHARED_CONSTANT(g_AlphaThreshold));\n";
+                }
+                else if (isCsdShader)
+                {
+                    indent();
+                    out += "oPos.xy += float2(GET_CONSTANT(g_ViewportSize.z), -GET_CONSTANT(g_ViewportSize.w));\n";
+                }
+
+                if (simpleControlFlow)
+                {
+                    indent();
+                    out += "return;\n";
+                }
+                else
+                {
+                    out += "\t\t\tbreak;\n";
+                }
+            }
 
             if (shouldCloseCurlyBracket)
             {
                 --indentation;
-                out += "\t\t\t}\n";
+                indent();
+                out += "}\n";
             }
         }
 
         controlFlowCode += 3;
+        instrAddress += 12;
     }
 
-    out += "\t\t\tbreak;\n";
-    out += "\t\t}\n";
-    out += "\t\tbreak;\n";
-    out += "\t}\n";
-
-    if (isPixelShader)
+    if (!simpleControlFlow)
     {
-        out += "\tif (GET_SHARED_CONSTANT(g_AlphaTestMode) != 0) clip(oC0.w - GET_SHARED_CONSTANT(g_AlphaThreshold));\n";
-    }
-    else if (isCsdShader)
-    {
-        out += "\toPos.xy += float2(GET_CONSTANT(g_ViewportSize.z), -GET_CONSTANT(g_ViewportSize.w));\n";
+        out += "\t\t\tbreak;\n";
+        out += "\t\t}\n";
+        out += "\t\tbreak;\n";
+        out += "\t}\n";
     }
 
     out += "}";

@@ -14,6 +14,7 @@ struct ShaderRecompiler
     std::unordered_map<uint32_t, const ConstantInfo*> float4Constants;
     std::unordered_map<uint32_t, const char*> boolConstants;
     std::unordered_map<uint32_t, const char*> samplers;
+    std::unordered_map<uint32_t, uint32_t> ifEndLabels;
 
     void indent()
     {
