@@ -67,6 +67,34 @@ static constexpr const char* USAGE_SEMANTICS[] =
     "SAMPLE"
 };
 
+struct DeclUsageLocation
+{
+    DeclUsage usage;
+    uint32_t usageIndex;
+    uint32_t location;
+};
+
+static constexpr DeclUsageLocation USAGE_LOCATIONS[] =
+{
+    { DeclUsage::Position, 0, 0 },
+    { DeclUsage::Normal, 0, 1 },
+    { DeclUsage::Tangent, 0, 2 },
+    { DeclUsage::Binormal, 0, 3 },
+    { DeclUsage::TexCoord, 0, 4 },
+    { DeclUsage::TexCoord, 1, 5 },
+    { DeclUsage::TexCoord, 2, 6 },
+    { DeclUsage::TexCoord, 3, 7 },
+    { DeclUsage::Color, 0, 8 },
+    { DeclUsage::BlendIndices, 0, 9 },
+    { DeclUsage::BlendWeight, 0, 10 },
+    { DeclUsage::Color, 1, 11 },
+    { DeclUsage::TexCoord, 4, 12 },
+    { DeclUsage::TexCoord, 5, 13 },
+    { DeclUsage::TexCoord, 6, 14 },
+    { DeclUsage::TexCoord, 7, 15 },
+    { DeclUsage::Position, 1, 15 },
+};
+
 static constexpr std::pair<DeclUsage, size_t> INTERPOLATORS[] =
 {
     { DeclUsage::TexCoord, 0 },
@@ -1098,7 +1126,18 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData)
             if (isMetaInstancer && vertexElement.usage == DeclUsage::TexCoord && vertexElement.usageIndex == 2)
                 usageType = "uint4";
 
-            println("\tin {0} i{1}{2} : {3}{2},", usageType, USAGE_VARIABLES[uint32_t(vertexElement.usage)],
+            out += '\t';
+
+            for (auto& usageLocation : USAGE_LOCATIONS)
+            {
+                if (usageLocation.usage == vertexElement.usage && usageLocation.usageIndex == vertexElement.usageIndex)
+                {
+                    print("[[vk::location({})]] ", usageLocation.location);
+                    break;
+                }
+            }
+
+            println("in {0} i{1}{2} : {3}{2},", usageType, USAGE_VARIABLES[uint32_t(vertexElement.usage)],
                 uint32_t(vertexElement.usageIndex), USAGE_SEMANTICS[uint32_t(vertexElement.usage)]);
 
             vertexElements.emplace(uint32_t(vertexElement.address), vertexElement);
