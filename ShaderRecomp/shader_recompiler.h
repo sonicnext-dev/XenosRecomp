@@ -3,9 +3,26 @@
 #include "shader.h"
 #include "shader_code.h"
 
-struct ShaderRecompiler
+struct StringBuffer
 {
     std::string out;
+
+    template<class... Args>
+    void print(std::format_string<Args...> fmt, Args&&... args)
+    {
+        std::vformat_to(std::back_inserter(out), fmt.get(), std::make_format_args(args...));
+    }
+
+    template<class... Args>
+    void println(std::format_string<Args...> fmt, Args&&... args)
+    {
+        std::vformat_to(std::back_inserter(out), fmt.get(), std::make_format_args(args...));
+        out += '\n';
+    }
+};
+
+struct ShaderRecompiler : StringBuffer
+{
     uint32_t indentation = 0;
     bool isPixelShader = false;
     const uint8_t* constantTableData = nullptr;
@@ -20,19 +37,6 @@ struct ShaderRecompiler
     {
         for (uint32_t i = 0; i < indentation; i++)
             out += '\t';
-    }
-
-    template<class... Args>
-    void print(std::format_string<Args...> fmt, Args&&... args)
-    {
-        std::vformat_to(std::back_inserter(out), fmt.get(), std::make_format_args(args...));
-    }
-
-    template<class... Args>
-    void println(std::format_string<Args...> fmt, Args&&... args)
-    {
-        std::vformat_to(std::back_inserter(out), fmt.get(), std::make_format_args(args...));
-        out += '\n';
     }
 
     void printDstSwizzle(uint32_t dstSwizzle, bool operand);

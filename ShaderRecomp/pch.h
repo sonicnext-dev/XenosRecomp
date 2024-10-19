@@ -8,11 +8,13 @@
 #include <cstdint>
 #include <execution>
 #include <filesystem>
+#include <print>
 #include <format>
 #include <map>
 #include <string>
 #include <unordered_map>
 #include <xxhash.h>
+#include <zstd.h>
 
 template<typename T>
 struct be

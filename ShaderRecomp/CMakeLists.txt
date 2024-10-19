@@ -17,11 +17,15 @@ add_executable(ShaderRecomp
 
 find_package(directx-dxc CONFIG REQUIRED)
 find_package(xxhash CONFIG REQUIRED)
+find_package(zstd CONFIG REQUIRED)
 
 target_link_libraries(ShaderRecomp PRIVATE
     Microsoft::DirectXShaderCompiler
-    xxHash::xxhash)
+    xxHash::xxhash
+    $<IF:$<TARGET_EXISTS:zstd::libzstd_shared>,zstd::libzstd_shared,zstd::libzstd_static>)
 
 target_precompile_headers(ShaderRecomp PRIVATE pch.h)
 
 add_compile_definitions(ShaderRecomp _CRT_SECURE_NO_WARNINGS)
+
+file(COPY ${PACKAGE_PREFIX_DIR}/bin/dxil.dll DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
