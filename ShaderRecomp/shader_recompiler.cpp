@@ -216,7 +216,7 @@ void ShaderRecompiler::recompile(const VertexFetchInstruction& instr, uint32_t a
 
 void ShaderRecompiler::recompile(const TextureFetchInstruction& instr)
 {
-    if (instr.opcode != FetchOpcode::TextureFetch)
+    if (instr.opcode != FetchOpcode::TextureFetch && instr.opcode != FetchOpcode::GetTextureWeights)
         return;
 
     if (instr.isPredicated)
@@ -233,7 +233,16 @@ void ShaderRecompiler::recompile(const TextureFetchInstruction& instr)
     print("r{}.", instr.dstRegister);
     printDstSwizzle(instr.dstSwizzle, false);
 
-    out += " = tfetch";
+    out += " = ";
+    switch (instr.opcode)
+    {
+    case FetchOpcode::TextureFetch:
+        out += "tfetch";
+        break;
+    case FetchOpcode::GetTextureWeights:
+        out += "getWeights";
+        break;
+    }
 
     uint32_t componentCount = 0;
     switch (instr.dimension)
@@ -267,8 +276,15 @@ void ShaderRecompiler::recompile(const TextureFetchInstruction& instr)
     for (size_t i = 0; i < componentCount; i++)
         out += SWIZZLES[((instr.srcSwizzle >> (i * 2))) & 0x3];
 
-    if (instr.dimension == TextureDimension::TextureCube)
+    switch (instr.dimension)
+    {
+    case TextureDimension::Texture2D:
+        print(", float2({}, {})", instr.offsetX * 0.5f, instr.offsetY * 0.5f);
+        break;
+    case TextureDimension::TextureCube:
         out += ", cubeMapData";
+        break;
+    }
 
     out += ").";
 
