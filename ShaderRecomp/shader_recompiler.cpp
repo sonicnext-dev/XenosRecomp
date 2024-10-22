@@ -214,7 +214,7 @@ void ShaderRecompiler::recompile(const VertexFetchInstruction& instr, uint32_t a
     }
 }
 
-void ShaderRecompiler::recompile(const TextureFetchInstruction& instr)
+void ShaderRecompiler::recompile(const TextureFetchInstruction& instr, bool bicubic)
 {
     if (instr.opcode != FetchOpcode::TextureFetch && instr.opcode != FetchOpcode::GetTextureWeights)
         return;
@@ -248,22 +248,27 @@ void ShaderRecompiler::recompile(const TextureFetchInstruction& instr)
     switch (instr.dimension)
     {
     case TextureDimension::Texture1D:
-        out += "1D(";
+        out += "1D";
         componentCount = 1;
         break;
     case TextureDimension::Texture2D:
-        out += "2D(";
+        out += "2D";
         componentCount = 2;
         break;
     case TextureDimension::Texture3D:
-        out += "3D(";
+        out += "3D";
         componentCount = 3;
         break;
     case TextureDimension::TextureCube:
-        out += "Cube(";
+        out += "Cube";
         componentCount = 3;
         break;
     }
+
+    if (bicubic)
+        out += "Bicubic";
+
+    out += '(';
 
     auto findResult = samplers.find(instr.constIndex);
     if (findResult != samplers.end())
@@ -1441,7 +1446,7 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData)
                 if (simpleControlFlow)
                 {
                     indent();
-                    println("for (aL = 0; aL < i{}.x; aL++)", uint32_t(cfInstr.loopStart.loopId));
+                    println("[unroll] for (aL = 0; aL < i{}.x; aL++)", uint32_t(cfInstr.loopStart.loopId));
                     indent();
                     out += "{\n";
                     ++indentation;
@@ -1536,9 +1541,41 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData)
                 if ((sequence & 0x1) != 0)
                 {
                     if (vertexFetch.opcode == FetchOpcode::VertexFetch)
+                    {
                         recompile(vertexFetch, address + i);
+                    }
                     else
-                        recompile(textureFetch);
+                    {
+                        if (textureFetch.constIndex == 10) // g_GISampler
+                        {
+                            indent();
+                            out += "[branch] if (GET_SHARED_CONSTANT(g_EnableGIBicubicFiltering))";
+                            indent();
+                            out += '{';
+
+                            ++indentation;
+                            recompile(textureFetch, true);
+                            --indentation;
+
+                            indent();
+                            out += "}";
+                            indent();
+                            out += "else";
+                            indent();
+                            out += '{';
+
+                            ++indentation;
+                            recompile(textureFetch, false);
+                            --indentation;
+
+                            indent();
+                            out += '}';
+                        }
+                        else
+                        {
+                            recompile(textureFetch, false);
+                        }
+                    }
                 }
                 else
                 {
@@ -1554,7 +1591,7 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData)
                 if (isPixelShader)
                 {
                     indent();
-                    out += "if (GET_SHARED_CONSTANT(g_AlphaTestMode) != 0) clip(oC0.w - GET_SHARED_CONSTANT(g_AlphaThreshold));\n";
+                    out += "[branch] if (GET_SHARED_CONSTANT(g_AlphaTestMode) != 0) clip(oC0.w - GET_SHARED_CONSTANT(g_AlphaThreshold));\n";
                 }
                 else if (isCsdShader)
                 {

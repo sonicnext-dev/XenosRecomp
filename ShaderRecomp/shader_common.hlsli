@@ -35,13 +35,13 @@ struct PushConstants
     [[vk::offset(132)]] float g_AlphaThreshold PACK_OFFSET(c8.y); \
     [[vk::offset(136)]] uint g_Booleans PACK_OFFSET(c8.z); \
     [[vk::offset(140)]] uint g_SwappedTexcoords PACK_OFFSET(c8.w); \
-    [[vk::offset(144)]] uint g_InputLayoutFlags PACK_OFFSET(c9.x)
+    [[vk::offset(144)]] uint g_InputLayoutFlags PACK_OFFSET(c9.x); \
+    [[vk::offset(148)]] bool g_EnableGIBicubicFiltering PACK_OFFSET(c9.y)
 
 Texture2D<float4> g_Texture2DDescriptorHeap[] : register(t0, space0);
 Texture3D<float4> g_Texture3DDescriptorHeap[] : register(t0, space1);
 TextureCube<float4> g_TextureCubeDescriptorHeap[] : register(t0, space2);
 SamplerState g_SamplerDescriptorHeap[] : register(s0, space3);
-
 
 float4 tfetch2D(uint resourceDescriptorIndex, uint samplerDescriptorIndex, float2 texCoord, float2 offset)
 {
@@ -61,6 +61,80 @@ float2 getWeights2D(uint resourceDescriptorIndex, uint samplerDescriptorIndex, f
     texture.GetDimensions(dimensions.x, dimensions.y);
     
     return frac(texCoord * dimensions + offset - 0.5);
+}
+
+float w0(float a)
+{
+    return (1.0f / 6.0f) * (a * (a * (-a + 3.0f) - 3.0f) + 1.0f);
+}
+
+float w1(float a)
+{
+    return (1.0f / 6.0f) * (a * a * (3.0f * a - 6.0f) + 4.0f);
+}
+
+float w2(float a)
+{
+    return (1.0f / 6.0f) * (a * (a * (-3.0f * a + 3.0f) + 3.0f) + 1.0f);
+}
+
+float w3(float a)
+{
+    return (1.0f / 6.0f) * (a * a * a);
+}
+
+float g0(float a)
+{
+    return w0(a) + w1(a);
+}
+
+float g1(float a)
+{
+    return w2(a) + w3(a);
+}
+
+float h0(float a)
+{
+    return -1.0f + w1(a) / (w0(a) + w1(a)) + 0.5f;
+}
+
+float h1(float a)
+{
+    return 1.0f + w3(a) / (w2(a) + w3(a)) + 0.5f;
+}
+
+float4 tfetch2DBicubic(uint resourceDescriptorIndex, uint samplerDescriptorIndex, float2 texCoord, float2 offset)
+{
+    Texture2D<float4> texture = g_Texture2DDescriptorHeap[resourceDescriptorIndex];
+    SamplerState samplerState = g_SamplerDescriptorHeap[samplerDescriptorIndex];
+    
+    uint2 dimensions;
+    texture.GetDimensions(dimensions.x, dimensions.y);
+    
+    float x = texCoord.x * dimensions.x + offset.x;
+    float y = texCoord.y * dimensions.y + offset.y;
+
+    x -= 0.5f;
+    y -= 0.5f;
+    float px = floor(x);
+    float py = floor(y);
+    float fx = x - px;
+    float fy = y - py;
+
+    float g0x = g0(fx);
+    float g1x = g1(fx);
+    float h0x = h0(fx);
+    float h1x = h1(fx);
+    float h0y = h0(fy);
+    float h1y = h1(fy);
+
+    float4 r =
+        g0(fy) * (g0x * texture.Sample(samplerState, float2(px + h0x, py + h0y) / float2(dimensions)) +
+            g1x * texture.Sample(samplerState, float2(px + h1x, py + h0y) / float2(dimensions))) +
+        g1(fy) * (g0x * texture.Sample(samplerState, float2(px + h0x, py + h1y) / float2(dimensions)) +
+            g1x * texture.Sample(samplerState, float2(px + h1x, py + h1y) / float2(dimensions)));
+
+    return r;
 }
 
 float4 tfetch3D(uint resourceDescriptorIndex, uint samplerDescriptorIndex, float3 texCoord)

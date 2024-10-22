@@ -43,7 +43,7 @@ struct ShaderRecompiler : StringBuffer
     void printDstSwizzle01(uint32_t dstRegister, uint32_t dstSwizzle);
 
     void recompile(const VertexFetchInstruction& instr, uint32_t address);
-    void recompile(const TextureFetchInstruction& instr);
+    void recompile(const TextureFetchInstruction& instr, bool bicubic);
     void recompile(const AluInstruction& instr);
 
     void recompile(const uint8_t* shaderData);
