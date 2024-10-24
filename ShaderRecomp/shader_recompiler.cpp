@@ -229,6 +229,36 @@ void ShaderRecompiler::recompile(const TextureFetchInstruction& instr, bool bicu
         ++indentation;
     }
 
+    auto printSrcRegister = [&](size_t componentCount)
+        {
+            print("r{}.", instr.srcRegister);
+
+            for (size_t i = 0; i < componentCount; i++)
+                out += SWIZZLES[((instr.srcSwizzle >> (i * 2))) & 0x3];
+        };
+
+    std::string constName;
+    const char* constNamePtr = nullptr;
+
+    auto findResult = samplers.find(instr.constIndex);
+    if (findResult != samplers.end())
+    {
+        constNamePtr = findResult->second;
+    }
+    else
+    {
+        constName = std::format("s{}", instr.constIndex);
+        constNamePtr = constName.c_str();
+    }
+
+    if (instr.constIndex == 0 && instr.dimension == TextureDimension::Texture2D)
+    {
+        indent();
+        print("pixelCoord = getPixelCoord(GET_SHARED_CONSTANT({}_ResourceDescriptorIndex), ", constNamePtr);
+        printSrcRegister(2);
+        out += ");\n";
+    }
+
     indent();
     print("r{}.", instr.dstRegister);
     printDstSwizzle(instr.dstSwizzle, false);
@@ -268,18 +298,8 @@ void ShaderRecompiler::recompile(const TextureFetchInstruction& instr, bool bicu
     if (bicubic)
         out += "Bicubic";
 
-    out += '(';
-
-    auto findResult = samplers.find(instr.constIndex);
-    if (findResult != samplers.end())
-        print("GET_SHARED_CONSTANT({}_ResourceDescriptorIndex), GET_SHARED_CONSTANT({}_SamplerDescriptorIndex)", findResult->second, findResult->second);
-    else 
-        print("GET_SHARED_CONSTANT(s{}_ResourceDescriptorIndex), GET_SHARED_CONSTANT(s{}_SamplerDescriptorIndex)", instr.constIndex, instr.constIndex);
-
-    print(", r{}.", instr.srcRegister);
-
-    for (size_t i = 0; i < componentCount; i++)
-        out += SWIZZLES[((instr.srcSwizzle >> (i * 2))) & 0x3];
+    print("(GET_SHARED_CONSTANT({0}_ResourceDescriptorIndex), GET_SHARED_CONSTANT({0}_SamplerDescriptorIndex), ", constNamePtr);
+    printSrcRegister(componentCount);
 
     switch (instr.dimension)
     {
@@ -1290,7 +1310,10 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData)
     out += "\tbool p0 = false;\n";
     out += "\tfloat ps = 0.0;\n";
     if (isPixelShader)
+    {
+        out += "\tfloat2 pixelCoord = 0.0;\n";
         out += "\tCubeMapData cubeMapData = (CubeMapData)0;\n";
+    }
 
     const be<uint32_t>* code = reinterpret_cast<const be<uint32_t>*>(shaderData + shaderContainer->virtualSize + shader->physicalOffset);
 
@@ -1591,7 +1614,27 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData)
                 if (isPixelShader)
                 {
                     indent();
-                    out += "[branch] if (GET_SHARED_CONSTANT(g_AlphaTestMode) != 0) clip(oC0.w - GET_SHARED_CONSTANT(g_AlphaThreshold));\n";
+                    out += "[branch] if (GET_SHARED_CONSTANT(g_AlphaTestMode) == 1)";
+                    indent();
+                    out += '{';
+
+                    indent();
+                    out += "\tclip(oC0.w - GET_SHARED_CONSTANT(g_AlphaThreshold));\n";
+
+                    indent();
+                    out += "}";
+                    indent();
+                    out += "else if (GET_SHARED_CONSTANT(g_AlphaTestMode) == 2)";
+                    indent();
+                    out += '{';
+
+                    indent();
+                    out += "\toC0.w *= 1.0 + computeMipLevel(pixelCoord) * 0.25;\n";
+                    indent();
+                    out += "\toC0.w = 0.5 + (oC0.w - GET_SHARED_CONSTANT(g_AlphaThreshold)) / max(fwidth(oC0.w), 1e-6);\n";
+
+                    indent();
+                    out += '}';
                 }
                 else if (isCsdShader)
                 {
