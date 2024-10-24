@@ -1050,7 +1050,6 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData)
 
     bool isMetaInstancer = false;
     bool hasIndexCount = false;
-    bool isCsdShader = false;
 
     for (uint32_t i = 0; i < constantTableContainer->constantTable.constants; i++)
     {
@@ -1069,8 +1068,6 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData)
                     isMetaInstancer = true;
                 else if (strcmp(constantName, "g_IndexCount") == 0)
                     hasIndexCount = true;
-                else if (strcmp(constantName, "g_Z") == 0)
-                    isCsdShader = true;
             }
 
             print("\t[[vk::offset({})]] float4 {}", constantInfo->registerIndex * 16, constantName);
@@ -1635,11 +1632,6 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData)
 
                     indent();
                     out += '}';
-                }
-                else if (isCsdShader)
-                {
-                    indent();
-                    out += "oPos.xy += float2(GET_CONSTANT(g_ViewportSize.z), -GET_CONSTANT(g_ViewportSize.w));\n";
                 }
 
                 if (simpleControlFlow)
