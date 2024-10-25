@@ -1,6 +1,8 @@
 #define FLT_MIN asfloat(0xff7fffff)
 #define FLT_MAX asfloat(0x7f7fffff)
 
+#define INPUT_LAYOUT_FLAG_HAS_R11G11B10_NORMAL (1 << 0)
+
 #ifdef __spirv__
 
 struct PushConstants
@@ -12,31 +14,24 @@ struct PushConstants
 
 [[vk::push_constant]] ConstantBuffer<PushConstants> g_PushConstants;
 
-#define CONSTANT_BUFFER(NAME, REGISTER) struct NAME
-#define PACK_OFFSET(REGISTER)
-
-#define GET_CONSTANT(NAME) constants.NAME
-#define GET_SHARED_CONSTANT(NAME) sharedConstants.NAME
+#define g_AlphaTestMode            vk::RawBufferLoad<uint>(g_PushConstants.SharedConstants + 128)
+#define g_AlphaThreshold           vk::RawBufferLoad<float>(g_PushConstants.SharedConstants + 132)
+#define g_Booleans                 vk::RawBufferLoad<uint>(g_PushConstants.SharedConstants + 136)
+#define g_SwappedTexcoords         vk::RawBufferLoad<uint>(g_PushConstants.SharedConstants + 140)
+#define g_InputLayoutFlags         vk::RawBufferLoad<uint>(g_PushConstants.SharedConstants + 144)
+#define g_EnableGIBicubicFiltering vk::RawBufferLoad<bool>(g_PushConstants.SharedConstants + 148)
 
 #else
 
-#define CONSTANT_BUFFER(NAME, REGISTER) cbuffer NAME : register(REGISTER, space4)
-#define PACK_OFFSET(REGISTER) : packoffset(REGISTER)
-
-#define GET_CONSTANT(NAME) NAME
-#define GET_SHARED_CONSTANT(NAME) NAME
+#define DEFINE_SHARED_CONSTANTS() \
+    uint g_AlphaTestMode : packoffset(c8.x); \
+    float g_AlphaThreshold : packoffset(c8.y); \
+    uint g_Booleans : packoffset(c8.z); \
+    uint g_SwappedTexcoords : packoffset(c8.w); \
+    uint g_InputLayoutFlags : packoffset(c9.x); \
+    bool g_EnableGIBicubicFiltering : packoffset(c9.y)
 
 #endif
-
-#define INPUT_LAYOUT_FLAG_HAS_R11G11B10_NORMAL (1 << 0)
-
-#define SHARED_CONSTANTS \
-    [[vk::offset(128)]] uint g_AlphaTestMode PACK_OFFSET(c8.x); \
-    [[vk::offset(132)]] float g_AlphaThreshold PACK_OFFSET(c8.y); \
-    [[vk::offset(136)]] uint g_Booleans PACK_OFFSET(c8.z); \
-    [[vk::offset(140)]] uint g_SwappedTexcoords PACK_OFFSET(c8.w); \
-    [[vk::offset(144)]] uint g_InputLayoutFlags PACK_OFFSET(c9.x); \
-    [[vk::offset(148)]] bool g_EnableGIBicubicFiltering PACK_OFFSET(c9.y)
 
 Texture2D<float4> g_Texture2DDescriptorHeap[] : register(t0, space0);
 Texture3D<float4> g_Texture3DDescriptorHeap[] : register(t0, space1);
