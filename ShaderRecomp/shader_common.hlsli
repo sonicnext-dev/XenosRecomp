@@ -14,22 +14,22 @@ struct PushConstants
 
 [[vk::push_constant]] ConstantBuffer<PushConstants> g_PushConstants;
 
-#define g_AlphaTestMode            vk::RawBufferLoad<uint>(g_PushConstants.SharedConstants + 128)
-#define g_AlphaThreshold           vk::RawBufferLoad<float>(g_PushConstants.SharedConstants + 132)
-#define g_Booleans                 vk::RawBufferLoad<uint>(g_PushConstants.SharedConstants + 136)
-#define g_SwappedTexcoords         vk::RawBufferLoad<uint>(g_PushConstants.SharedConstants + 140)
-#define g_InputLayoutFlags         vk::RawBufferLoad<uint>(g_PushConstants.SharedConstants + 144)
-#define g_EnableGIBicubicFiltering vk::RawBufferLoad<bool>(g_PushConstants.SharedConstants + 148)
+#define g_AlphaTestMode            vk::RawBufferLoad<uint>(g_PushConstants.SharedConstants + 256)
+#define g_AlphaThreshold           vk::RawBufferLoad<float>(g_PushConstants.SharedConstants + 260)
+#define g_Booleans                 vk::RawBufferLoad<uint>(g_PushConstants.SharedConstants + 264)
+#define g_SwappedTexcoords         vk::RawBufferLoad<uint>(g_PushConstants.SharedConstants + 268)
+#define g_InputLayoutFlags         vk::RawBufferLoad<uint>(g_PushConstants.SharedConstants + 272)
+#define g_EnableGIBicubicFiltering vk::RawBufferLoad<bool>(g_PushConstants.SharedConstants + 276)
 
 #else
 
 #define DEFINE_SHARED_CONSTANTS() \
-    uint g_AlphaTestMode : packoffset(c8.x); \
-    float g_AlphaThreshold : packoffset(c8.y); \
-    uint g_Booleans : packoffset(c8.z); \
-    uint g_SwappedTexcoords : packoffset(c8.w); \
-    uint g_InputLayoutFlags : packoffset(c9.x); \
-    bool g_EnableGIBicubicFiltering : packoffset(c9.y)
+    uint g_AlphaTestMode : packoffset(c16.x); \
+    float g_AlphaThreshold : packoffset(c16.y); \
+    uint g_Booleans : packoffset(c16.z); \
+    uint g_SwappedTexcoords : packoffset(c16.w); \
+    uint g_InputLayoutFlags : packoffset(c17.x); \
+    bool g_EnableGIBicubicFiltering : packoffset(c17.y)
 
 #endif
 

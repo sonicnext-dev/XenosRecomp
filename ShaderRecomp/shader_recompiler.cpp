@@ -117,6 +117,13 @@ static constexpr std::pair<DeclUsage, size_t> INTERPOLATORS[] =
     { DeclUsage::Color, 1 }
 };
 
+static constexpr std::string_view TEXTURE_DIMENSIONS[] = 
+{
+    "2D",
+    "3D", 
+    "Cube" 
+};
+
 static FetchDestinationSwizzle getDestSwizzle(uint32_t dstSwizzle, uint32_t index)
 {
     return FetchDestinationSwizzle((dstSwizzle >> (index * 3)) & 0x7);
@@ -254,7 +261,7 @@ void ShaderRecompiler::recompile(const TextureFetchInstruction& instr, bool bicu
     if (instr.constIndex == 0 && instr.dimension == TextureDimension::Texture2D)
     {
         indent();
-        print("pixelCoord = getPixelCoord({}_ResourceDescriptorIndex, ", constNamePtr);
+        print("pixelCoord = getPixelCoord({}_Texture2DDescriptorIndex, ", constNamePtr);
         printSrcRegister(2);
         out += ");\n";
     }
@@ -274,31 +281,34 @@ void ShaderRecompiler::recompile(const TextureFetchInstruction& instr, bool bicu
         break;
     }
 
+    std::string_view dimension;
     uint32_t componentCount = 0;
+
     switch (instr.dimension)
     {
     case TextureDimension::Texture1D:
-        out += "1D";
+        dimension = "1D";
         componentCount = 1;
         break;
     case TextureDimension::Texture2D:
-        out += "2D";
+        dimension = "2D";
         componentCount = 2;
         break;
     case TextureDimension::Texture3D:
-        out += "3D";
+        dimension = "3D";
         componentCount = 3;
         break;
     case TextureDimension::TextureCube:
-        out += "Cube";
+        dimension = "Cube";
         componentCount = 3;
         break;
     }
 
+    out += dimension;
     if (bicubic)
         out += "Bicubic";
 
-    print("({0}_ResourceDescriptorIndex, {0}_SamplerDescriptorIndex, ", constNamePtr);
+    print("({0}_Texture{1}DescriptorIndex, {0}_SamplerDescriptorIndex, ", constNamePtr, dimension);
     printSrcRegister(componentCount);
 
     switch (instr.dimension)
@@ -1073,8 +1083,8 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData)
 
             if (constantInfo->registerCount > 1)
             {
-                println("#define {}(INDEX) vk::RawBufferLoad<float4>(g_PushConstants.{}ShaderConstants + ({} + INDEX) * 16, 0x10)",
-                    constantName, shaderName, constantInfo->registerIndex.get());
+                println("#define {}(INDEX) ((INDEX) < {} ? vk::RawBufferLoad<float4>(g_PushConstants.{}ShaderConstants + ({} + (INDEX)) * 16, 0x10) : 0.0)",
+                    constantName, constantInfo->registerCount.get(), shaderName, constantInfo->registerIndex.get());
             }
             else
             {
@@ -1090,11 +1100,14 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData)
 
         case RegisterSet::Sampler:
         {
-            println("#define {}_ResourceDescriptorIndex vk::RawBufferLoad<uint>(g_PushConstants.SharedConstants + {})",
-                constantName, constantInfo->registerIndex * 4);
+            for (size_t j = 0; j < std::size(TEXTURE_DIMENSIONS); j++)
+            {
+                println("#define {}_Texture{}DescriptorIndex vk::RawBufferLoad<uint>(g_PushConstants.SharedConstants + {})",
+                    constantName, TEXTURE_DIMENSIONS[j], j * 64 + constantInfo->registerIndex * 4);
+            }
 
             println("#define {}_SamplerDescriptorIndex vk::RawBufferLoad<uint>(g_PushConstants.SharedConstants + {})",
-                constantName, 64 + constantInfo->registerIndex * 4);
+                constantName, std::size(TEXTURE_DIMENSIONS) * 64 + constantInfo->registerIndex * 4);
 
             samplers.emplace(constantInfo->registerIndex, constantName);
             break;
@@ -1125,7 +1138,7 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData)
             println(" : packoffset(c{});", constantInfo->registerIndex.get());
 
             if (constantInfo->registerCount > 1)
-                println("#define {0}(INDEX) {0}[INDEX]", constantName);
+                println("#define {0}(INDEX) ((INDEX) < {1} ? {0}[INDEX] : 0.0)", constantName, constantInfo->registerCount.get());
         }
     }
 
@@ -1143,11 +1156,14 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData)
         {
             const char* constantName = reinterpret_cast<const char*>(constantTableData + constantInfo->name);
 
-            println("\tuint {}_ResourceDescriptorIndex : packoffset(c{}.{});",
-                constantName, constantInfo->registerIndex / 4, SWIZZLES[constantInfo->registerIndex % 4]);
+            for (size_t j = 0; j < std::size(TEXTURE_DIMENSIONS); j++)
+            {
+                println("\tuint {}_Texture{}DescriptorIndex : packoffset(c{}.{});",
+                    constantName, TEXTURE_DIMENSIONS[j], j * 4 + constantInfo->registerIndex / 4, SWIZZLES[constantInfo->registerIndex % 4]);
+            }
 
             println("\tuint {}_SamplerDescriptorIndex : packoffset(c{}.{});",
-                constantName, 4 + constantInfo->registerIndex / 4, SWIZZLES[constantInfo->registerIndex % 4]);
+                constantName, 4 * std::size(TEXTURE_DIMENSIONS) + constantInfo->registerIndex / 4, SWIZZLES[constantInfo->registerIndex % 4]);
         }
     }
 

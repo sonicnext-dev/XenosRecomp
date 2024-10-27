@@ -26,6 +26,10 @@ target_link_libraries(ShaderRecomp PRIVATE
 
 target_precompile_headers(ShaderRecomp PRIVATE pch.h)
 
-add_compile_definitions(ShaderRecomp _CRT_SECURE_NO_WARNINGS)
+if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    target_compile_options(ShaderRecomp PRIVATE -Wno-switch -Wno-unused-variable)
+endif()
+
+target_compile_definitions(ShaderRecomp PRIVATE _CRT_SECURE_NO_WARNINGS)
 
 file(COPY ${PACKAGE_PREFIX_DIR}/bin/dxil.dll DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
