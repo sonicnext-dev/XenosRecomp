@@ -45,6 +45,18 @@ int main(int argc, char** argv)
         argv[2]
 #endif
         ;
+    
+    const char* includeInput =
+#ifdef SHADER_RECOMP_INCLUDE_INPUT
+        SHADER_RECOMP_INCLUDE_INPUT
+#else
+        argv[3]
+#endif
+        ;
+
+    size_t includeSize = 0;
+    auto includeData = readAllBytes(includeInput, includeSize);
+    std::string_view include(reinterpret_cast<const char*>(includeData.get()), includeSize);
 
     if (std::filesystem::is_directory(input))
     {
@@ -63,7 +75,7 @@ int main(int argc, char** argv)
                 size_t dataSize = shaderContainer->virtualSize + shaderContainer->physicalSize;
 
                 if ((shaderContainer->flags & 0xFFFFFF00) == 0x102A1100 &&
-                    dataSize < (fileSize - i) &&
+                    dataSize <= (fileSize - i) &&
                     shaderContainer->field1C == 0 &&
                     shaderContainer->field20 == 0)
                 {
@@ -95,7 +107,7 @@ int main(int argc, char** argv)
 
                 thread_local ShaderRecompiler recompiler;
                 recompiler = {};
-                recompiler.recompile(shader.data);
+                recompiler.recompile(shader.data, include);
 
                 thread_local DxcCompiler dxcCompiler;
                 shader.dxil = dxcCompiler.compile(recompiler.out, recompiler.isPixelShader, false);
@@ -170,7 +182,7 @@ int main(int argc, char** argv)
     {
         ShaderRecompiler recompiler;
         size_t fileSize;
-        recompiler.recompile(readAllBytes(input, fileSize).get());
+        recompiler.recompile(readAllBytes(input, fileSize).get(), include);
         writeAllBytes(output, recompiler.out.data(), recompiler.out.size());
     }
 

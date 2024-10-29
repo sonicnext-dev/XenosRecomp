@@ -1,5 +1,4 @@
 #include "shader_recompiler.h"
-#include "shader_common.hlsli.h"
 
 static constexpr char SWIZZLES[] = 
 { 
@@ -1042,14 +1041,16 @@ void ShaderRecompiler::recompile(const AluInstruction& instr)
     }
 }
 
-void ShaderRecompiler::recompile(const uint8_t* shaderData)
+void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_view& include)
 {
     const auto shaderContainer = reinterpret_cast<const ShaderContainer*>(shaderData);
 
     assert((shaderContainer->flags & 0xFFFFFF00) == 0x102A1100);
     assert(shaderContainer->constantTableOffset != NULL);
 
-    out += std::string_view(SHADER_COMMON_HLSLI, SHADER_COMMON_HLSLI_SIZE);
+    out += include;
+    out += '\n';
+
     isPixelShader = (shaderContainer->flags & 0x1) == 0;
 
     const auto constantTableContainer = reinterpret_cast<const ConstantTableContainer*>(shaderData + shaderContainer->constantTableOffset);

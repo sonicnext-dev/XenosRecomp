@@ -46,5 +46,5 @@ struct ShaderRecompiler : StringBuffer
     void recompile(const TextureFetchInstruction& instr, bool bicubic);
     void recompile(const AluInstruction& instr);
 
-    void recompile(const uint8_t* shaderData);
+    void recompile(const uint8_t* shaderData, const std::string_view& include);
 };

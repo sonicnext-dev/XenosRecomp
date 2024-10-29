@@ -1,8 +1,5 @@
 project(ShaderRecomp)
 
-include(bin2h.cmake)
-bin2h(SOURCE_FILE shader_common.hlsli HEADER_FILE shader_common.hlsli.h VARIABLE_NAME SHADER_COMMON_HLSLI)
-
 add_executable(ShaderRecomp 
     constant_table.h
     dxc_compiler.cpp
@@ -11,7 +8,6 @@ add_executable(ShaderRecomp
     pch.h
     shader.h
     shader_code.h
-    shader_common.hlsli.h
     shader_recompiler.cpp
     shader_recompiler.h)
 
