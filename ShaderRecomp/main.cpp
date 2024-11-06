@@ -151,7 +151,7 @@ int main(int argc, char** argv)
         std::vector<uint8_t> dxilCompressed(ZSTD_compressBound(dxil.size()));
         dxilCompressed.resize(ZSTD_compress(dxilCompressed.data(), dxilCompressed.size(), dxil.data(), dxil.size(), level));
 
-        f.print("uint8_t g_compressedDxilCache[] = {{");
+        f.print("const uint8_t g_compressedDxilCache[] = {{");
 
         for (auto data : dxilCompressed)
             f.print("{},", data);
@@ -163,18 +163,18 @@ int main(int argc, char** argv)
         std::vector<uint8_t> spirvCompressed(ZSTD_compressBound(spirv.size()));
         spirvCompressed.resize(ZSTD_compress(spirvCompressed.data(), spirvCompressed.size(), spirv.data(), spirv.size(), level));
 
-        f.print("uint8_t g_compressedSpirvCache[] = {{");
+        f.print("const uint8_t g_compressedSpirvCache[] = {{");
 
         for (auto data : spirvCompressed)
             f.print("{},", data);
 
         f.println("}};");
 
-        f.println("size_t g_shaderCacheEntryCount = {};", shaders.size());
-        f.println("size_t g_dxilCacheCompressedSize = {};", dxilCompressed.size());
-        f.println("size_t g_dxilCacheDecompressedSize = {};", dxil.size());
-        f.println("size_t g_spirvCacheCompressedSize = {};", spirvCompressed.size());
-        f.println("size_t g_spirvCacheDecompressedSize = {};", spirv.size());
+        f.println("const size_t g_shaderCacheEntryCount = {};", shaders.size());
+        f.println("const size_t g_dxilCacheCompressedSize = {};", dxilCompressed.size());
+        f.println("const size_t g_dxilCacheDecompressedSize = {};", dxil.size());
+        f.println("const size_t g_spirvCacheCompressedSize = {};", spirvCompressed.size());
+        f.println("const size_t g_spirvCacheDecompressedSize = {};", spirv.size());
 
         writeAllBytes(output, f.out.data(), f.out.size());
     }
