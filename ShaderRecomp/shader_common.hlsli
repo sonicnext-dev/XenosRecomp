@@ -54,7 +54,7 @@ float4 tfetch2D(uint resourceDescriptorIndex, uint samplerDescriptorIndex, float
 float2 getWeights2D(uint resourceDescriptorIndex, uint samplerDescriptorIndex, float2 texCoord, float2 offset)
 {
     Texture2D<float4> texture = g_Texture2DDescriptorHeap[resourceDescriptorIndex];
-    return frac(texCoord * getTexture2DDimensions(texture) + offset - 0.5);
+    return select(isnan(texCoord), 0.0, frac(texCoord * getTexture2DDimensions(texture) + offset - 0.5));
 }
 
 float w0(float a)
