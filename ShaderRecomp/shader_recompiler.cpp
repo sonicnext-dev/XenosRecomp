@@ -1,4 +1,5 @@
 #include "shader_recompiler.h"
+#include "shader_common.h"
 
 static constexpr char SWIZZLES[] = 
 { 
@@ -182,7 +183,8 @@ void ShaderRecompiler::recompile(const VertexFetchInstruction& instr, uint32_t a
     case DeclUsage::Normal:
     case DeclUsage::Tangent:
     case DeclUsage::Binormal:
-        print("tfetchR11G11B10(g_InputLayoutFlags, ");
+        specConstantsMask |= SPEC_CONSTANT_R11G11B10_NORMAL;
+        print("tfetchR11G11B10(");
         break;
 
     case DeclUsage::TexCoord:
@@ -251,8 +253,7 @@ void ShaderRecompiler::recompile(const TextureFetchInstruction& instr, bool bicu
     if (findResult != samplers.end())
     {
         constNamePtr = findResult->second;
-        subtractFromOne = strcmp(constNamePtr, "sampZBuffer") == 0 ||
-            strcmp(constNamePtr, "g_DepthSampler") == 0;
+        subtractFromOne = hasMtxPrevInvViewProjection && strcmp(constNamePtr, "sampZBuffer") == 0;
     }
     else
     {
@@ -446,8 +447,16 @@ void ShaderRecompiler::recompile(const AluInstruction& instr)
                     const char* constantName = reinterpret_cast<const char*>(constantTableData + findResult->second->name);
                     if (findResult->second->registerCount > 1)
                     {
-                        regFormatted = std::format("{}({}{})", constantName, 
-                            reg - findResult->second->registerIndex, instr.const0Relative ? (instr.constAddressRegisterRelative ? " + a0" : " + aL") : "");
+                        if (hasMtxProjection && strcmp(constantName, "g_MtxProjection") == 0)
+                        {
+                            regFormatted = std::format("(iterationIndex == 0 ? mtxProjectionReverseZ[{0}] : mtxProjection[{0}])",
+                                reg - findResult->second->registerIndex);
+                        }
+                        else
+                        {
+                            regFormatted = std::format("{}({}{})", constantName,
+                                reg - findResult->second->registerIndex, instr.const0Relative ? (instr.constAddressRegisterRelative ? " + a0" : " + aL") : "");
+                        }
                     }
                     else
                     {
@@ -550,6 +559,8 @@ void ShaderRecompiler::recompile(const AluInstruction& instr)
         break;
     }
 
+    bool closeIfBracket = false;
+
     std::string_view exportRegister;
     if (instr.exportData)
     {
@@ -580,6 +591,18 @@ void ShaderRecompiler::recompile(const AluInstruction& instr)
             {
             case ExportRegister::VSPosition:
                 exportRegister = "oPos";
+
+                if (hasMtxProjection)
+                {
+                    indent();
+                    out += "if ((g_SpecConstants() & SPEC_CONSTANT_REVERSE_Z) == 0 || iterationIndex == 0)\n";
+                    indent();
+                    out += "{\n";
+                    ++indentation;
+
+                    closeIfBracket = true;
+                }
+
                 break;
 
             default:
@@ -1042,6 +1065,13 @@ void ShaderRecompiler::recompile(const AluInstruction& instr)
         out += "clip(ps != 0.0 ? 1 : -1);\n";
     }
 
+    if (closeIfBracket)
+    {
+        --indentation;
+        indent();
+        out += "}\n";
+    }
+
     if (instr.isPredicated)
     {
         --indentation;
@@ -1079,10 +1109,17 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
 
         if (!isPixelShader)
         {
-            if (strcmp(constantName, "g_InstanceTypes") == 0)
+            if (strcmp(constantName, "g_MtxProjection") == 0)
+                hasMtxProjection = true;
+            else if (strcmp(constantName, "g_InstanceTypes") == 0)
                 isMetaInstancer = true;
             else if (strcmp(constantName, "g_IndexCount") == 0)
                 hasIndexCount = true;
+        }
+        else
+        {
+            if (strcmp(constantName, "g_MtxPrevInvViewProjection") == 0)
+                hasMtxPrevInvViewProjection = true;
         }
 
         switch (constantInfo->registerSet)
@@ -1093,8 +1130,10 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
 
             if (constantInfo->registerCount > 1)
             {
-                println("#define {}(INDEX) ((INDEX) < {} ? vk::RawBufferLoad<float4>(g_PushConstants.{}ShaderConstants + ({} + (INDEX)) * 16, 0x10) : 0.0)",
-                    constantName, constantInfo->registerCount.get(), shaderName, constantInfo->registerIndex.get());
+                uint32_t tailCount = (isPixelShader ? 224 : 256) - constantInfo->registerIndex;
+
+                println("#define {}(INDEX) select((INDEX) < {}, vk::RawBufferLoad<float4>(g_PushConstants.{}ShaderConstants + ({} + min(INDEX, {})) * 16, 0x10), 0.0)",
+                    constantName, tailCount, shaderName, constantInfo->registerIndex.get(), tailCount - 1);
             }
             else
             {
@@ -1148,7 +1187,10 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
             println(" : packoffset(c{});", constantInfo->registerIndex.get());
 
             if (constantInfo->registerCount > 1)
-                println("#define {0}(INDEX) ((INDEX) < {1} ? {0}[INDEX] : 0.0)", constantName, constantInfo->registerCount.get());
+            {
+                uint32_t tailCount = (isPixelShader ? 224 : 256) - constantInfo->registerIndex;
+                println("#define {0}(INDEX) select((INDEX) < {1}, {0}[min(INDEX, {2})], 0.0)", constantName, tailCount, tailCount - 1);
+            }
         }
     }
 
@@ -1199,6 +1241,15 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
 
     const auto shader = reinterpret_cast<const Shader*>(shaderData + shaderContainer->shaderOffset);
 
+    out += "#ifndef __spirv__\n";
+
+    if (isPixelShader)
+        out += "[shader(\"pixel\")]\n";
+    else
+        out += "[shader(\"vertex\")]\n";
+
+    out += "#endif\n";
+
     out += "void main(\n";
 
     if (isPixelShader)
@@ -1208,7 +1259,11 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
         for (auto& [usage, usageIndex] : INTERPOLATORS)
             println("\tin float4 i{0}{1} : {2}{1},", USAGE_VARIABLES[uint32_t(usage)], usageIndex, USAGE_SEMANTICS[uint32_t(usage)]);
 
-        out += "\tin bool iFace : SV_IsFrontFace";
+        out += "#ifdef __spirv__\n";
+        out += "\tin bool iFace : SV_IsFrontFace\n";
+        out += "#else\n";
+        out += "\tin uint iFace : SV_IsFrontFace\n";
+        out += "#endif\n";
 
         auto pixelShader = reinterpret_cast<const PixelShader*>(shader);
         if (pixelShader->outputs & PIXEL_SHADER_OUTPUT_COLOR0)
@@ -1269,6 +1324,20 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
 
     out += ")\n";
     out += "{\n";
+
+
+    if (hasMtxProjection)
+    {
+        specConstantsMask |= SPEC_CONSTANT_REVERSE_Z;
+
+        out += "\toPos = 0.0;\n";
+
+        out += "\tfloat4x4 mtxProjection = float4x4(g_MtxProjection(0), g_MtxProjection(1), g_MtxProjection(2), g_MtxProjection(3));\n";
+        out += "\tfloat4x4 mtxProjectionReverseZ = mul(mtxProjection, float4x4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, -1, 0, 0, 0, 1, 1));\n";
+
+        out += "\t[unroll] for (int iterationIndex = 0; iterationIndex < 2; iterationIndex++)\n";
+        out += "\t{\n";
+    }
 
     if (shaderContainer->definitionTableOffset != NULL)
     {
@@ -1345,7 +1414,9 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
 
     if (!isPixelShader)
     {
-        out += "\toPos = 0.0;\n";
+        if (!hasMtxProjection)
+            out += "\toPos = 0.0;\n";
+
         for (auto& [usage, usageIndex] : INTERPOLATORS)
             println("\to{}{} = 0.0;", USAGE_VARIABLES[uint32_t(usage)], usageIndex);
 
@@ -1638,8 +1709,10 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
                     {
                         if (textureFetch.constIndex == 10) // g_GISampler
                         {
+                            specConstantsMask |= SPEC_CONSTANT_BICUBIC_GI_FILTER;
+
                             indent();
-                            out += "[branch] if (g_EnableGIBicubicFiltering)";
+                            out += "if (g_SpecConstants() & SPEC_CONSTANT_BICUBIC_GI_FILTER)";
                             indent();
                             out += '{';
 
@@ -1680,8 +1753,10 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
             {
                 if (isPixelShader)
                 {
+                    specConstantsMask |= (SPEC_CONSTANT_ALPHA_TEST | SPEC_CONSTANT_ALPHA_TO_COVERAGE);
+
                     indent();
-                    out += "[branch] if (g_AlphaTestMode == 1)";
+                    out += "[branch] if (g_SpecConstants() & SPEC_CONSTANT_ALPHA_TEST)";
                     indent();
                     out += '{';
 
@@ -1691,7 +1766,7 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
                     indent();
                     out += "}";
                     indent();
-                    out += "else if (g_AlphaTestMode == 2)";
+                    out += "else if (g_SpecConstants() & SPEC_CONSTANT_ALPHA_TO_COVERAGE)";
                     indent();
                     out += '{';
 
@@ -1707,7 +1782,10 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
                 if (simpleControlFlow)
                 {
                     indent();
-                    out += "return;\n";
+                    if (hasMtxProjection)
+                        out += "continue;\n";
+                    else
+                        out += "return;\n";
                 }
                 else
                 {
@@ -1734,6 +1812,9 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
         out += "\t\tbreak;\n";
         out += "\t}\n";
     }
+
+    if (hasMtxProjection)
+        out += "\t}\n";
 
     out += "}";
 }
