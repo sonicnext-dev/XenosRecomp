@@ -257,7 +257,7 @@ void ShaderRecompiler::recompile(const TextureFetchInstruction& instr, bool bicu
     }
     else
     {
-        constName = std::format("s{}", instr.constIndex);
+        constName = fmt::format("s{}", instr.constIndex);
         constNamePtr = constName.c_str();
     }
 
@@ -437,7 +437,7 @@ void ShaderRecompiler::recompile(const AluInstruction& instr)
 
             if (select)
             {
-                regFormatted = std::format("r{}", reg);
+                regFormatted = fmt::format("r{}", reg);
             }
             else
             {
@@ -449,12 +449,12 @@ void ShaderRecompiler::recompile(const AluInstruction& instr)
                     {
                         if (hasMtxProjection && strcmp(constantName, "g_MtxProjection") == 0)
                         {
-                            regFormatted = std::format("(iterationIndex == 0 ? mtxProjectionReverseZ[{0}] : mtxProjection[{0}])",
+                            regFormatted = fmt::format("(iterationIndex == 0 ? mtxProjectionReverseZ[{0}] : mtxProjection[{0}])",
                                 reg - findResult->second->registerIndex);
                         }
                         else
                         {
-                            regFormatted = std::format("{}({}{})", constantName,
+                            regFormatted = fmt::format("{}({}{})", constantName,
                                 reg - findResult->second->registerIndex, instr.const0Relative ? (instr.constAddressRegisterRelative ? " + a0" : " + aL") : "");
                         }
                     }
@@ -467,7 +467,7 @@ void ShaderRecompiler::recompile(const AluInstruction& instr)
                 else
                 {
                     assert(!instr.const0Relative && !instr.const1Relative);
-                    regFormatted = std::format("c{}", reg);
+                    regFormatted = fmt::format("c{}", reg);
                 }
             }
 
@@ -1408,7 +1408,7 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
         {
             auto vertexShader = reinterpret_cast<const VertexShader*>(shader);
             value = vertexShader->vertexElementsAndInterpolators[vertexShader->field18 + vertexShader->vertexElementCount + i];
-            interpolators.emplace(i, std::format("o{}{}", USAGE_VARIABLES[uint32_t(interpolator.usage)], uint32_t(interpolator.usageIndex)));
+            interpolators.emplace(i, fmt::format("o{}{}", USAGE_VARIABLES[uint32_t(interpolator.usage)], uint32_t(interpolator.usageIndex)));
         }
     }
 

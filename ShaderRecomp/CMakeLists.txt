@@ -17,11 +17,13 @@ add_executable(ShaderRecomp
 find_package(directx-dxc CONFIG REQUIRED)
 find_package(xxhash CONFIG REQUIRED)
 find_package(zstd CONFIG REQUIRED)
+find_package(fmt CONFIG REQUIRED)
 
 target_link_libraries(ShaderRecomp PRIVATE
     Microsoft::DirectXShaderCompiler
     xxHash::xxhash
-    $<IF:$<TARGET_EXISTS:zstd::libzstd_shared>,zstd::libzstd_shared,zstd::libzstd_static>)
+    $<IF:$<TARGET_EXISTS:zstd::libzstd_shared>,zstd::libzstd_shared,zstd::libzstd_static>
+    fmt::fmt)
 
 target_include_directories(ShaderRecomp PRIVATE ${SMOLV_SOURCE_DIR})
 

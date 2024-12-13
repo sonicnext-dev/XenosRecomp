@@ -126,10 +126,10 @@ int main(int argc, char** argv)
 
                 size_t currentProgress = ++progress;
                 if ((currentProgress % 10) == 0 || (currentProgress == shaders.size() - 1))
-                    std::println("Recompiling shaders... {}%", currentProgress / float(shaders.size()) * 100.0f);
+                    fmt::println("Recompiling shaders... {}%", currentProgress / float(shaders.size()) * 100.0f);
             });
 
-        std::println("Creating shader cache...");
+        fmt::println("Creating shader cache...");
 
         StringBuffer f;
         f.println("#include \"shader_cache.h\"");
@@ -151,7 +151,7 @@ int main(int argc, char** argv)
 
         f.println("}};");
 
-        std::println("Compressing DXIL cache...");
+        fmt::println("Compressing DXIL cache...");
 
         int level = ZSTD_maxCLevel();
         //level = ZSTD_defaultCLevel();
@@ -165,7 +165,7 @@ int main(int argc, char** argv)
 
         f.println("}};");
 
-        std::println("Compressing SPIRV cache...");
+        fmt::println("Compressing SPIRV cache...");
 
         std::vector<uint8_t> spirvCompressed(ZSTD_compressBound(spirv.size()));
         spirvCompressed.resize(ZSTD_compress(spirvCompressed.data(), spirvCompressed.size(), spirv.data(), spirv.size(), level));
