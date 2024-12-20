@@ -19,14 +19,12 @@ add_executable(ShaderRecomp
     "${SMOLV_SOURCE_DIR}/smolv.cpp")
 
 find_package(directx-dxc CONFIG REQUIRED)
-find_package(xxhash CONFIG REQUIRED)
-find_package(zstd CONFIG REQUIRED)
-find_package(fmt CONFIG REQUIRED)
 
 target_link_libraries(ShaderRecomp PRIVATE
     Microsoft::DirectXShaderCompiler
+    Microsoft::DXIL
     xxHash::xxhash
-    $<IF:$<TARGET_EXISTS:zstd::libzstd_shared>,zstd::libzstd_shared,zstd::libzstd_static>
+    libzstd_static
     fmt::fmt)
 
 target_include_directories(ShaderRecomp PRIVATE ${SMOLV_SOURCE_DIR})
@@ -34,13 +32,15 @@ target_include_directories(ShaderRecomp PRIVATE ${SMOLV_SOURCE_DIR})
 target_precompile_headers(ShaderRecomp PRIVATE pch.h)
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-    target_compile_options(ShaderRecomp PRIVATE -Wno-switch -Wno-unused-variable)
+    target_compile_options(ShaderRecomp PRIVATE -Wno-switch -Wno-unused-variable -Wno-null-arithmetic -fms-extensions)
 endif()
 
-target_compile_definitions(ShaderRecomp PRIVATE _CRT_SECURE_NO_WARNINGS)
+if (WIN32)
+    target_compile_definitions(ShaderRecomp PRIVATE _CRT_SECURE_NO_WARNINGS)
+    find_file(DIRECTX_DXIL_LIBRARY "dxil.dll")
+    file(COPY ${DIRECTX_DXIL_LIBRARY} DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+endif()
 
 if (SHADER_RECOMP_DXIL)
     target_compile_definitions(ShaderRecomp PRIVATE SHADER_RECOMP_DXIL)
 endif()
-
-file(COPY ${PACKAGE_PREFIX_DIR}/bin/dxil.dll DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
