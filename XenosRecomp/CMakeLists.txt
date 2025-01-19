@@ -1,12 +1,12 @@
-project(ShaderRecomp)
+project(XenosRecomp)
 
 if (WIN32)
-    option(SHADER_RECOMP_DXIL "Generate DXIL shader cache" ON)
+    option(XENOS_RECOMP_DXIL "Generate DXIL shader cache" ON)
 endif()
 
 set(SMOLV_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../thirdparty/smol-v/source")
 
-add_executable(ShaderRecomp 
+add_executable(XenosRecomp 
     constant_table.h
     dxc_compiler.cpp
     dxc_compiler.h
@@ -20,27 +20,27 @@ add_executable(ShaderRecomp
 
 find_package(directx-dxc CONFIG REQUIRED)
 
-target_link_libraries(ShaderRecomp PRIVATE
+target_link_libraries(XenosRecomp PRIVATE
     Microsoft::DirectXShaderCompiler
     Microsoft::DXIL
     xxHash::xxhash
     libzstd_static
     fmt::fmt)
 
-target_include_directories(ShaderRecomp PRIVATE ${SMOLV_SOURCE_DIR})
+target_include_directories(XenosRecomp PRIVATE ${SMOLV_SOURCE_DIR})
 
-target_precompile_headers(ShaderRecomp PRIVATE pch.h)
+target_precompile_headers(XenosRecomp PRIVATE pch.h)
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-    target_compile_options(ShaderRecomp PRIVATE -Wno-switch -Wno-unused-variable -Wno-null-arithmetic -fms-extensions)
+    target_compile_options(XenosRecomp PRIVATE -Wno-switch -Wno-unused-variable -Wno-null-arithmetic -fms-extensions)
 endif()
 
 if (WIN32)
-    target_compile_definitions(ShaderRecomp PRIVATE _CRT_SECURE_NO_WARNINGS)
+    target_compile_definitions(XenosRecomp PRIVATE _CRT_SECURE_NO_WARNINGS)
     find_file(DIRECTX_DXIL_LIBRARY "dxil.dll")
     file(COPY ${DIRECTX_DXIL_LIBRARY} DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 endif()
 
-if (SHADER_RECOMP_DXIL)
-    target_compile_definitions(ShaderRecomp PRIVATE SHADER_RECOMP_DXIL)
+if (XENOS_RECOMP_DXIL)
+    target_compile_definitions(XenosRecomp PRIVATE XENOS_RECOMP_DXIL)
 endif()

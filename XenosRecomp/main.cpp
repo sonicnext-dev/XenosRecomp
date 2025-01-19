@@ -32,24 +32,24 @@ struct RecompiledShader
 int main(int argc, char** argv)
 {
     const char* input =
-#ifdef SHADER_RECOMP_INPUT 
-        SHADER_RECOMP_INPUT
+#ifdef XENOS_RECOMP_INPUT 
+        XENOS_RECOMP_INPUT
 #else
         argv[1]
 #endif
     ;
 
     const char* output =
-#ifdef SHADER_RECOMP_OUTPUT 
-        SHADER_RECOMP_OUTPUT
+#ifdef XENOS_RECOMP_OUTPUT 
+        XENOS_RECOMP_OUTPUT
 #else
         argv[2]
 #endif
         ;
     
     const char* includeInput =
-#ifdef SHADER_RECOMP_INCLUDE_INPUT
-        SHADER_RECOMP_INCLUDE_INPUT
+#ifdef XENOS_RECOMP_INCLUDE_INPUT
+        XENOS_RECOMP_INCLUDE_INPUT
 #else
         argv[3]
 #endif
@@ -114,7 +114,7 @@ int main(int argc, char** argv)
 
                 thread_local DxcCompiler dxcCompiler;
 
-#ifdef SHADER_RECOMP_DXIL
+#ifdef XENOS_RECOMP_DXIL
                 shader.dxil = dxcCompiler.compile(recompiler.out, recompiler.isPixelShader, recompiler.specConstantsMask != 0, false);
                 assert(shader.dxil != nullptr);
                 assert(*(reinterpret_cast<uint32_t *>(shader.dxil->GetBufferPointer()) + 1) != 0 && "DXIL was not signed properly!");
@@ -162,7 +162,7 @@ int main(int argc, char** argv)
 
         int level = ZSTD_maxCLevel();
 
-#ifdef SHADER_RECOMP_DXIL
+#ifdef XENOS_RECOMP_DXIL
         std::vector<uint8_t> dxilCompressed(ZSTD_compressBound(dxil.size()));
         dxilCompressed.resize(ZSTD_compress(dxilCompressed.data(), dxilCompressed.size(), dxil.data(), dxil.size(), level));
 
