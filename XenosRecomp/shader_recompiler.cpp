@@ -540,22 +540,22 @@ void ShaderRecompiler::recompile(const AluInstruction& instr)
     {
     case AluVectorOpcode::KillEq:
         indent();
-        println("clip(any({} == {}) ? 1 : -1);", op(VECTOR_0), op(VECTOR_1));
+        println("clip(any({} == {}) ? -1 : 1);", op(VECTOR_0), op(VECTOR_1));
         break;
     
     case AluVectorOpcode::KillGt:
         indent();
-        println("clip(any({} > {}) ? 1 : -1);", op(VECTOR_0), op(VECTOR_1));
+        println("clip(any({} > {}) ? -1 : 1);", op(VECTOR_0), op(VECTOR_1));
         break;
     
     case AluVectorOpcode::KillGe:
         indent();
-        println("clip(any({} >= {}) ? 1 : -1);", op(VECTOR_0), op(VECTOR_1));
+        println("clip(any({} >= {}) ? -1 : 1);", op(VECTOR_0), op(VECTOR_1));
         break;
     
     case AluVectorOpcode::KillNe:
         indent();
-        println("clip(any({} != {}) ? 1 : -1);", op(VECTOR_0), op(VECTOR_1));
+        println("clip(any({} != {}) ? -1 : 1);", op(VECTOR_0), op(VECTOR_1));
         break;
     }
 
@@ -1062,7 +1062,7 @@ void ShaderRecompiler::recompile(const AluInstruction& instr)
     if (instr.scalarOpcode >= AluScalarOpcode::KillsEq && instr.scalarOpcode <= AluScalarOpcode::KillsOne)
     {
         indent();
-        out += "clip(ps != 0.0 ? 1 : -1);\n";
+        out += "clip(ps != 0.0 ? -1 : 1);\n";
     }
 
     if (closeIfBracket)
