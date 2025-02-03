@@ -1291,8 +1291,12 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
             value = vertexShader->vertexElementsAndInterpolators[vertexShader->field18 + i];
 
             const char* usageType = USAGE_TYPES[uint32_t(vertexElement.usage)];
-            if (isMetaInstancer && vertexElement.usage == DeclUsage::TexCoord && vertexElement.usageIndex == 2)
+
+            if ((vertexElement.usage == DeclUsage::TexCoord && vertexElement.usageIndex == 2 && isMetaInstancer) ||
+                (vertexElement.usage == DeclUsage::Position && vertexElement.usageIndex == 1))
+            {
                 usageType = "uint4";
+            }
 
             out += '\t';
 
