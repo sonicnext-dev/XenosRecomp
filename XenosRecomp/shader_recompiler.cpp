@@ -80,7 +80,9 @@ static constexpr DeclUsageLocation USAGE_LOCATIONS[] =
     { DeclUsage::Position, 0, 0 },
     { DeclUsage::Normal, 0, 1 },
     { DeclUsage::Tangent, 0, 2 },
+    { DeclUsage::Position, 2, 2 }, // placeholder to compile
     { DeclUsage::Binormal, 0, 3 },
+    { DeclUsage::Position, 3, 3 }, // placeholder to compile
     { DeclUsage::TexCoord, 0, 4 },
     { DeclUsage::TexCoord, 1, 5 },
     { DeclUsage::TexCoord, 2, 6 },
