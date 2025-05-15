@@ -80,9 +80,9 @@ static constexpr DeclUsageLocation USAGE_LOCATIONS[] =
     { DeclUsage::Position, 0, 0 },
     { DeclUsage::Normal, 0, 1 },
     { DeclUsage::Tangent, 0, 2 },
-    { DeclUsage::Position, 2, 2 }, // placeholder to compile
+    { DeclUsage::Position, 2, 14 }, // placeholder to compile
     { DeclUsage::Binormal, 0, 3 },
-    { DeclUsage::Position, 3, 3 }, // placeholder to compile
+    { DeclUsage::Position, 3, 16 }, // placeholder to compile
     { DeclUsage::TexCoord, 0, 4 },
     { DeclUsage::TexCoord, 1, 5 },
     { DeclUsage::TexCoord, 2, 6 },
@@ -96,6 +96,12 @@ static constexpr DeclUsageLocation USAGE_LOCATIONS[] =
     { DeclUsage::TexCoord, 6, 14 },
     { DeclUsage::TexCoord, 7, 15 },
     { DeclUsage::Position, 1, 15 },
+    { DeclUsage::Normal, 1, 8 },
+    { DeclUsage::Normal, 2, 9 },
+    { DeclUsage::Normal, 3, 10 },
+    { DeclUsage::Tangent, 1, 11 },
+    { DeclUsage::Tangent, 2, 12 },
+    { DeclUsage::Tangent, 3, 13 },
 };
 
 static constexpr std::pair<DeclUsage, size_t> INTERPOLATORS[] =
@@ -1700,7 +1706,8 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
                         if (findResult != boolConstants.end())
                             println("if ((g_Booleans & {}) {}= 0)", findResult->second, cfInstr.condJmp.condition ^ simpleControlFlow ? "!" : "=");
                         else
-                            println("if (b{} {}= 0)", uint32_t(cfInstr.condJmp.boolAddress), cfInstr.condJmp.condition ^ simpleControlFlow ? "!" : "=");
+                            println("if ({})", cfInstr.condJmp.condition ^ simpleControlFlow ? "false" : "true"); 
+                        // println("if (b{} {}= 0)", uint32_t(cfInstr.condJmp.boolAddress), cfInstr.condJmp.condition ^ simpleControlFlow ? "!" : "=");
                     }
 
                     if (simpleControlFlow)

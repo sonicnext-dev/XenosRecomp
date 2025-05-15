@@ -71,6 +71,19 @@ float2 getWeights2D(uint resourceDescriptorIndex, uint samplerDescriptorIndex, f
     return select(isnan(texCoord), 0.0, frac(texCoord * getTexture2DDimensions(texture) + offset - 0.5));
 }
 
+uint3 getTexture3DDimensions(Texture3D<float4> texture)
+{
+    uint3 dimensions;
+    texture.GetDimensions(dimensions.x, dimensions.y, dimensions.z);
+    return dimensions;
+}
+
+float3 getWeights3D(uint resourceDescriptorIndex, uint samplerDescriptorIndex, float3 texCoord)
+{
+    Texture3D<float4> texture = g_Texture3DDescriptorHeap[resourceDescriptorIndex];
+    return select(isnan(texCoord), 0.0, frac(texCoord * getTexture3DDimensions(texture)));
+}
+
 float w0(float a)
 {
     return (1.0f / 6.0f) * (a * (a * (-a + 3.0f) - 3.0f) + 1.0f);
