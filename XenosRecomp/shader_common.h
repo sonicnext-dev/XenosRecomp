@@ -188,6 +188,16 @@ float4 tfetchR11G11B10(uint4 value)
     }
 }
 
+float4 swapBlend(float4 value)
+{
+    return value.yxzw;
+}
+
+float4 swapBlendInd(float4 value)
+{
+    return float4(value.x, value.y, 0.0, value.z);
+}
+
 float4 tfetchTexcoord(uint swappedTexcoords, float4 value, uint semanticIndex)
 {
     return (swappedTexcoords & (1ull << semanticIndex)) != 0 ? value.yxwz : value;

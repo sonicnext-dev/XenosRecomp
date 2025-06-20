@@ -196,6 +196,12 @@ void ShaderRecompiler::recompile(const VertexFetchInstruction& instr, uint32_t a
         print("tfetchR11G11B10(");
         break;
 
+    case DeclUsage::BlendWeight:
+        print("swapBlend(");
+        break;
+    case DeclUsage::BlendIndices:
+        print("swapBlendInd(");
+        break;
     case DeclUsage::TexCoord:
         print("tfetchTexcoord(g_SwappedTexcoords, ");
         break;
@@ -208,6 +214,8 @@ void ShaderRecompiler::recompile(const VertexFetchInstruction& instr, uint32_t a
     case DeclUsage::Normal:
     case DeclUsage::Tangent:
     case DeclUsage::Binormal:
+    case DeclUsage::BlendWeight:
+    case DeclUsage::BlendIndices:
         out += ')';
         break;
 
