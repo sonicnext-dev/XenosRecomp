@@ -71,6 +71,7 @@ int main(int argc, char** argv)
     {
         std::vector<std::unique_ptr<uint8_t[]>> files;
         std::map<XXH64_hash_t, RecompiledShader> shaders;
+        std::map<XXH64_hash_t, std::string> shaderFilenames;
 
         for (auto& file : std::filesystem::recursive_directory_iterator(input))
         {
@@ -99,6 +100,7 @@ int main(int argc, char** argv)
                     {
                         shader.first->second.data = fileData.get() + i;
                         foundAny = true;
+                        shaderFilenames[hash] = file.path().string();
                     }
 
                     i += dataSize;
@@ -157,8 +159,14 @@ int main(int argc, char** argv)
 
         for (auto& [hash, shader] : shaders)
         {
-            f.println("\t{{ 0x{:X}, {}, {}, {}, {}, {} }},",
-                hash, dxil.size(), (shader.dxil != nullptr) ? shader.dxil->GetBufferSize() : 0, spirv.size(), shader.spirv.size(), shader.specConstantsMask);
+            const std::string& fullFilename = shaderFilenames[hash];
+            std::string filename = fullFilename;
+            size_t shaderPos = filename.find("shader");
+            if (shaderPos != std::string::npos) {
+                filename = filename.substr(shaderPos);
+            }
+            f.println("\t{{ 0x{:X}, {}, {}, {}, {}, {}, \"{}\" }},",
+                hash, dxil.size(), (shader.dxil != nullptr) ? shader.dxil->GetBufferSize() : 0, spirv.size(), shader.spirv.size(), shader.specConstantsMask, filename);
 
             if (shader.dxil != nullptr)
             {
