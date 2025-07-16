@@ -18,11 +18,11 @@ static constexpr const char* USAGE_TYPES[] =
     "float4", // POSITION
     "float4", // BLENDWEIGHT
     "uint4", // BLENDINDICES
-    "uint4", // NORMAL
+    "float3", // NORMAL
     "float4", // PSIZE
     "float4", // TEXCOORD
-    "uint4", // TANGENT
-    "uint4", // BINORMAL
+    "float3", // TANGENT
+    "float3", // BINORMAL
     "float4", // TESSFACTOR
     "float4", // POSITIONT
     "float4", // COLOR
@@ -189,13 +189,6 @@ void ShaderRecompiler::recompile(const VertexFetchInstruction& instr, uint32_t a
 
     switch (findResult->second.usage)
     {
-    case DeclUsage::Normal:
-    case DeclUsage::Tangent:
-    case DeclUsage::Binormal:
-        specConstantsMask |= SPEC_CONSTANT_R11G11B10_NORMAL;
-        print("tfetchR11G11B10(");
-        break;
-
     case DeclUsage::BlendWeight:
         print("swapBlend(");
         break;
@@ -211,9 +204,6 @@ void ShaderRecompiler::recompile(const VertexFetchInstruction& instr, uint32_t a
 
     switch (findResult->second.usage)
     {
-    case DeclUsage::Normal:
-    case DeclUsage::Tangent:
-    case DeclUsage::Binormal:
     case DeclUsage::BlendWeight:
     case DeclUsage::BlendIndices:
         out += ')';
