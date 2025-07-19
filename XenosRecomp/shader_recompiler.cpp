@@ -345,9 +345,6 @@ void ShaderRecompiler::recompile(const TextureFetchInstruction& instr, bool bicu
     case TextureDimension::Texture2D:
         print(", float2({}, {})", instr.offsetX * 0.5f, instr.offsetY * 0.5f);
         break;
-    case TextureDimension::TextureCube:
-        out += ", cubeMapData";
-        break;
     }
 
     out += ").";
@@ -770,7 +767,7 @@ void ShaderRecompiler::recompile(const AluInstruction& instr)
             break;
 
         case AluVectorOpcode::Cube:
-            print("cube(r{}, cubeMapData)", instr.src1Register);
+            print("cube({})", op(VECTOR_0));
             break;
 
         case AluVectorOpcode::Max4:
@@ -1494,7 +1491,6 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
 #ifdef UNLEASHED_RECOMP
         out += "\tfloat2 pixelCoord = 0.0;\n";
 #endif
-        out += "\tCubeMapData cubeMapData = (CubeMapData)0;\n";
     }
 
     const be<uint32_t>* code = reinterpret_cast<const be<uint32_t>*>(shaderData + shaderContainer->virtualSize + shader->physicalOffset);

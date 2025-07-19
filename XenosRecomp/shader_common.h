@@ -161,15 +161,83 @@ float4 tfetch3D(uint resourceDescriptorIndex, uint samplerDescriptorIndex, float
     return g_Texture3DDescriptorHeap[resourceDescriptorIndex].Sample(g_SamplerDescriptorHeap[samplerDescriptorIndex], texCoord);
 }
 
-struct CubeMapData
+float4 cube(float4 value)
 {
-    float3 cubeMapDirections[2];
-    uint cubeMapIndex;
-};
+    float3 src = value.zwx;
+    float3 abs_src = abs(src);
 
-float4 tfetchCube(uint resourceDescriptorIndex, uint samplerDescriptorIndex, float3 texCoord, inout CubeMapData cubeMapData)
+    float sc, tc, ma, id;
+
+    if (abs_src.z >= abs_src.x && abs_src.z >= abs_src.y)
+    {
+        // Z major axis
+        tc = -src.y;
+        sc = src.z < 0.0 ? -src.x : src.x;
+        ma = 2.0 * src.z;
+        id = src.z < 0.0 ? 5.0 : 4.0;
+    }
+    else if (abs_src.y >= abs_src.x)
+    {
+        // Y major axis
+        tc = src.y < 0.0 ? -src.z : src.z;
+        sc = src.x;
+        ma = 2.0 * src.y;
+        id = src.y < 0.0 ? 3.0 : 2.0;
+    }
+    else
+    {
+        // X major axis
+        tc = -src.y;
+        sc = src.x < 0.0 ? src.z : -src.z;
+        ma = 2.0 * src.x;
+        id = src.x < 0.0 ? 1.0 : 0.0;
+    }
+
+    // Return as per Xbox 360 cube instruction output format:
+    // x = t coordinate
+    // y = s coordinate
+    // z = 2 * major axis
+    // w = face ID
+    return float4(tc, sc, ma, id);
+}
+
+float4 tfetchCube(uint resourceDescriptorIndex, uint samplerDescriptorIndex, float3 texCoord)
 {
-    return g_TextureCubeDescriptorHeap[resourceDescriptorIndex].Sample(g_SamplerDescriptorHeap[samplerDescriptorIndex], cubeMapData.cubeMapDirections[texCoord.z]);
+    // Move from 1...2 to -1...1
+    float sc = (texCoord.x * 2.0) - 3.0;
+    float tc = (texCoord.y * 2.0) - 3.0;
+
+    uint face = uint(clamp(texCoord.z, 0.0, 5.0));
+
+    // Split face into axis and sign
+    uint axis = face >> 1;
+    uint neg = face & 1;
+
+    float3 dir;
+
+    switch(axis)
+    {
+        case 0: // X major axis
+            dir.y = -tc;
+            dir.z = neg ? sc : -sc;
+            dir.x = neg ? -1.0 : 1.0;
+            break;
+
+        case 1: // Y major axis
+            dir.x = sc;
+            dir.z = neg ? -tc : tc;
+            dir.y = neg ? -1.0 : 1.0;
+            break;
+
+        default: // Z major axis
+            dir.x = neg ? -sc : sc;
+            dir.y = -tc;
+            dir.z = neg ? -1.0 : 1.0;
+            break;
+    }
+
+    return g_TextureCubeDescriptorHeap[resourceDescriptorIndex].Sample(
+        g_SamplerDescriptorHeap[samplerDescriptorIndex], dir);
 }
 
 float4 tfetchR11G11B10(uint4 value)
@@ -201,15 +269,6 @@ float4 swapBlendInd(float4 value)
 float4 tfetchTexcoord(uint swappedTexcoords, float4 value, uint semanticIndex)
 {
     return (swappedTexcoords & (1ull << semanticIndex)) != 0 ? value.yxwz : value;
-}
-
-float4 cube(float4 value, inout CubeMapData cubeMapData)
-{
-    uint index = cubeMapData.cubeMapIndex;
-    cubeMapData.cubeMapDirections[index] = value.xyz;
-    ++cubeMapData.cubeMapIndex;
-    
-    return float4(0.0, 0.0, 0.0, index);
 }
 
 float4 dst(float4 src0, float4 src1)
