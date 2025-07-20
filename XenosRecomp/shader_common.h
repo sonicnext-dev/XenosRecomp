@@ -28,8 +28,12 @@ struct PushConstants
 
 #define g_Booleans                 vk::RawBufferLoad<uint>(g_PushConstants.SharedConstants + 256)
 #define g_SwappedTexcoords         vk::RawBufferLoad<uint>(g_PushConstants.SharedConstants + 260)
-#define g_HalfPixelOffset          vk::RawBufferLoad<float2>(g_PushConstants.SharedConstants + 264)
-#define g_AlphaThreshold           vk::RawBufferLoad<float>(g_PushConstants.SharedConstants + 272)
+#define g_SwappedNormals           vk::RawBufferLoad<uint>(g_PushConstants.SharedConstants + 264)
+#define g_SwappedBinormals         vk::RawBufferLoad<uint>(g_PushConstants.SharedConstants + 268)
+#define g_SwappedTangents          vk::RawBufferLoad<uint>(g_PushConstants.SharedConstants + 272)
+#define g_SwappedBlendWeights      vk::RawBufferLoad<uint>(g_PushConstants.SharedConstants + 276)
+#define g_HalfPixelOffset          vk::RawBufferLoad<float2>(g_PushConstants.SharedConstants + 280)
+#define g_AlphaThreshold           vk::RawBufferLoad<float>(g_PushConstants.SharedConstants + 288)
 
 [[vk::constant_id(0)]] const uint g_SpecConstants = 0;
 
@@ -40,8 +44,12 @@ struct PushConstants
 #define DEFINE_SHARED_CONSTANTS() \
     uint g_Booleans : packoffset(c16.x); \
     uint g_SwappedTexcoords : packoffset(c16.y); \
-    float2 g_HalfPixelOffset : packoffset(c16.z); \
-    float g_AlphaThreshold : packoffset(c17.x);
+    uint g_SwappedNormals : packoffset(c16.z); \
+    uint g_SwappedBinormals : packoffset(c16.w); \
+    uint g_SwappedTangents : packoffset(c17.x);  \
+    uint g_SwappedBlendWeights : packoffset(c17.y); \
+    float2 g_HalfPixelOffset : packoffset(c17.z); \
+    float g_AlphaThreshold : packoffset(c18.x);
 
 uint g_SpecConstants();
 
@@ -256,19 +264,9 @@ float4 tfetchR11G11B10(uint4 value)
     }
 }
 
-float4 swapBlend(float4 value)
+float4 swapFloats(uint swappedFloats, float4 value, uint semanticIndex)
 {
-    return value.yxzw;
-}
-
-float4 swapBlendInd(float4 value)
-{
-    return float4(value.x, value.y, 0.0, value.z);
-}
-
-float4 tfetchTexcoord(uint swappedTexcoords, float4 value, uint semanticIndex)
-{
-    return (swappedTexcoords & (1ull << semanticIndex)) != 0 ? value.yxwz : value;
+    return (swappedFloats & (1ull << semanticIndex)) != 0 ? value.yxwz : value;
 }
 
 float4 dst(float4 src0, float4 src1)
