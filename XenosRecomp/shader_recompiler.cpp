@@ -1829,11 +1829,10 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
                     out += '}';
                 #endif
                 }
-                // TODO: breaks title screen render
-                // else
-                // {
-                //     out += "\toPos.xy += g_HalfPixelOffset * oPos.w;\n";
-                // }
+                else
+                {
+                    out += "\toPos.xy += g_HalfPixelOffset * oPos.w;\n";
+                }
 
                 if (simpleControlFlow)
                 {
