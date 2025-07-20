@@ -1355,7 +1355,7 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
         }
     #endif
 
-        out += "\tout float4 oPos : SV_Position";
+        out += "\tout precise float4 oPos : SV_Position";
 
         for (auto& [usage, usageIndex] : INTERPOLATORS)
             print(",\n\tout float4 o{0}{1} : {2}{1}", USAGE_VARIABLES[uint32_t(usage)], usageIndex, USAGE_SEMANTICS[uint32_t(usage)]);
