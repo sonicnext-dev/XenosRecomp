@@ -328,7 +328,7 @@ void ShaderRecompiler::recompile(const TextureFetchInstruction& instr, bool bicu
         componentCount = 2;
         break;
     case TextureDimension::Texture3D:
-        dimension = "3D";
+        dimension = "2D";
         componentCount = 3;
         break;
     case TextureDimension::TextureCube:
@@ -337,7 +337,10 @@ void ShaderRecompiler::recompile(const TextureFetchInstruction& instr, bool bicu
         break;
     }
 
-    out += dimension;
+    if (instr.dimension == TextureDimension::Texture3D)
+        out += "2DArray";
+    else
+        out += dimension;
 
 #ifdef UNLEASHED_RECOMP
     if (bicubic)
@@ -349,9 +352,12 @@ void ShaderRecompiler::recompile(const TextureFetchInstruction& instr, bool bicu
 
     switch (instr.dimension)
     {
-    case TextureDimension::Texture2D:
-        print(", float2({}, {})", instr.offsetX * 0.5f, instr.offsetY * 0.5f);
-        break;
+        case TextureDimension::Texture2D:
+            print(", float2({}, {})", instr.offsetX * 0.5f, instr.offsetY * 0.5f);
+            break;
+        case TextureDimension::Texture3D:
+            print(", float3({}, {}, {})", instr.offsetX * 0.5f, instr.offsetY * 0.5f, instr.offsetZ * 0.5f);
+            break;
     }
 
     out += ").";
