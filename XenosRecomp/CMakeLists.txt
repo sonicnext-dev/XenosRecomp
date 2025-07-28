@@ -4,9 +4,14 @@ if (WIN32)
     option(XENOS_RECOMP_DXIL "Generate DXIL shader cache" ON)
 endif()
 
+if (APPLE)
+    enable_language(OBJC OBJCXX)
+    option(XENOS_RECOMP_AIR "Generate Metal AIR shader cache" ON)
+endif()
+
 set(SMOLV_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../thirdparty/smol-v/source")
 
-add_executable(XenosRecomp 
+add_executable(XenosRecomp
     constant_table.h
     dxc_compiler.cpp
     dxc_compiler.h
@@ -50,4 +55,10 @@ endif()
 if (XENOS_RECOMP_DXIL)
     target_compile_definitions(XenosRecomp PRIVATE XENOS_RECOMP_DXIL)
     target_link_libraries(XenosRecomp PRIVATE Microsoft::DXIL)
+endif()
+
+if (XENOS_RECOMP_AIR)
+    target_compile_definitions(XenosRecomp PRIVATE XENOS_RECOMP_AIR)
+    target_sources(XenosRecomp PRIVATE air_compiler.mm air_compiler.h)
+    target_link_libraries(XenosRecomp PRIVATE "-framework Foundation" "-framework CoreFoundation" "-framework Metal")
 endif()
