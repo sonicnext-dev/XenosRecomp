@@ -1,7 +1,10 @@
 #include "shader.h"
 #include "shader_recompiler.h"
 #include "dxc_compiler.h"
+
+#ifdef XENOS_RECOMP_AIR
 #include "air_compiler.h"
+#endif
 
 static std::unique_ptr<uint8_t[]> readAllBytes(const char* filePath, size_t& fileSize)
 {
@@ -138,7 +141,8 @@ int main(int argc, char** argv)
 #endif
 
 #ifdef XENOS_RECOMP_AIR
-                shader.air = AirCompiler::compile(recompiler.out);
+                thread_local AirCompiler airCompiler;
+                shader.air = airCompiler.compile(recompiler.out);
 #endif
 
                 IDxcBlob* spirv = dxcCompiler.compile(recompiler.out, recompiler.isPixelShader, false, true);
