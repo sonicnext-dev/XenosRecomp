@@ -1711,7 +1711,7 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
         out += "\tconstant Texture2DArrayDescriptorHeap* g_Texture2DArrayDescriptorHeap [[buffer(1)]],\n";
         out += "\tconstant TextureCubeDescriptorHeap* g_TextureCubeDescriptorHeap [[buffer(2)]],\n";
         out += "\tconstant SamplerDescriptorHeap* g_SamplerDescriptorHeap [[buffer(3)]],\n";
-        out += "\tconstant PushConstants& g_PushConstants [[buffer(4)]]\n";
+        out += "\tconstant PushConstants& g_PushConstants [[buffer(8)]]\n";
 
         out += "#else\n";
 
@@ -1729,7 +1729,7 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
     else
     {
         out += "#ifdef __air__\n";
-        out += "\tconstant PushConstants& g_PushConstants [[buffer(4)]],\n";
+        out += "\tconstant PushConstants& g_PushConstants [[buffer(8)]],\n";
         out += "\tVertexShaderInput input [[stage_in]]\n";
         out += "#else\n";
         out += "\tVertexShaderInput input\n";
