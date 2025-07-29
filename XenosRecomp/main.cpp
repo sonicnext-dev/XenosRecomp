@@ -141,8 +141,8 @@ int main(int argc, char** argv)
 #endif
 
 #ifdef XENOS_RECOMP_AIR
-                thread_local AirCompiler airCompiler;
-                shader.air = airCompiler.compile(recompiler.out);
+                shader.air = AirCompiler::compile(recompiler.out);
+                assert(shader.air != nullptr);
 #endif
 
                 IDxcBlob* spirv = dxcCompiler.compile(recompiler.out, recompiler.isPixelShader, false, true);
