@@ -5,7 +5,6 @@ if (WIN32)
 endif()
 
 if (APPLE)
-    enable_language(OBJC OBJCXX)
     option(XENOS_RECOMP_AIR "Generate Metal AIR shader cache" ON)
 endif()
 
@@ -59,6 +58,5 @@ endif()
 
 if (XENOS_RECOMP_AIR)
     target_compile_definitions(XenosRecomp PRIVATE XENOS_RECOMP_AIR)
-    target_sources(XenosRecomp PRIVATE air_compiler.mm air_compiler.h)
-    target_link_libraries(XenosRecomp PRIVATE "-framework Foundation" "-framework CoreFoundation" "-framework Metal")
+    target_sources(XenosRecomp PRIVATE air_compiler.cpp air_compiler.h)
 endif()
