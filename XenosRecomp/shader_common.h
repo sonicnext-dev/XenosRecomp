@@ -41,7 +41,7 @@ struct PushConstants
 
 #define g_SpecConstants() g_SpecConstants
 
-#elif __air__
+#elif defined(__air__)
 
 #include <metal_stdlib>
 

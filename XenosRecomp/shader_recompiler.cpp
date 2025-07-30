@@ -1379,7 +1379,7 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
         }
     }
 
-    out += "\n#elif __air__\n\n";
+    out += "\n#elif defined(__air__)\n\n";
 
     for (uint32_t i = 0; i < constantTableContainer->constantTable.constants; i++)
     {
@@ -1529,12 +1529,16 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
 
     if (isPixelShader)
     {
-        out += "#if __air__\n";
+        out += "#ifdef __air__\n";
+
+        out += "float4 iPos [[position]];\n";
 
         for (auto& [usage, usageIndex] : INTERPOLATORS)
             println("\tfloat4 i{0}{1} [[user({2}{1})]];", USAGE_VARIABLES[uint32_t(usage)], usageIndex, USAGE_SEMANTICS[uint32_t(usage)]);
 
         out += "#else\n";
+
+        out += "float4 iPos : SV_Position;\n";
 
         for (auto& [usage, usageIndex] : INTERPOLATORS)
             println("\tfloat4 i{0}{1} : {2}{1};", USAGE_VARIABLES[uint32_t(usage)], usageIndex, USAGE_SEMANTICS[uint32_t(usage)]);
@@ -1545,7 +1549,7 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
     {
         auto vertexShader = reinterpret_cast<const VertexShader*>(shader);
 
-        out += "#if __air__\n";
+        out += "#ifdef __air__\n";
 
         for (uint32_t i = 0; i < vertexShader->vertexElementCount; i++)
         {
@@ -1631,7 +1635,7 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
 
     if (isPixelShader)
     {
-        out += "#if __air__\n";
+        out += "#ifdef __air__\n";
 
         auto pixelShader = reinterpret_cast<const PixelShader*>(shader);
         if (pixelShader->outputs & PIXEL_SHADER_OUTPUT_COLOR0)
@@ -1662,7 +1666,7 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
     }
     else
     {
-        out += "#if __air__\n";
+        out += "#ifdef __air__\n";
 
         out += "\tfloat4 oPos [[position]] [[invariant]];\n";
 
@@ -1688,7 +1692,7 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
     else
         out += "[[vertex]]\n";
 
-    out += "#elifndef __spirv__\n";
+    out += "#elif !defined(__spirv__)\n";
 
     if (isPixelShader)
         out += "[shader(\"pixel\")]\n";
@@ -1704,7 +1708,6 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
         out += "#ifdef __air__\n";
 
         out += "\tInterpolators input [[stage_in]],\n";
-        out += "\tfloat4 iPos [[position]],\n";
         out += "\tbool iFace [[front_facing]],\n";
 
         out += "\tconstant Texture2DDescriptorHeap* g_Texture2DDescriptorHeap [[buffer(0)]],\n";
@@ -1716,7 +1719,6 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
         out += "#else\n";
 
         out += "\tInterpolators input,\n";
-        out += "\tin float4 iPos : SV_Position,\n";
 
         out += "#ifdef __spirv__\n";
         out += "\tin bool iFace : SV_IsFrontFace\n";
@@ -1874,7 +1876,7 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
             print("\tfloat4 r{} = ", i);
             if (isPixelShader && i == ((shader->fieldC >> 8) & 0xFF))
             {
-                out += "float4((iPos.xy - 0.5) * float2(iFace ? 1.0 : -1.0, 1.0), 0.0, 0.0);\n";
+                out += "float4((input.iPos.xy - 0.5) * float2(iFace ? 1.0 : -1.0, 1.0), 0.0, 0.0);\n";
             }
         #ifdef UNLEASHED_RECOMP
             else if (!isPixelShader && hasIndexCount && i == 0)
