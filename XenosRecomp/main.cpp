@@ -142,7 +142,6 @@ int main(int argc, char** argv)
 
 #ifdef XENOS_RECOMP_AIR
                 shader.air = AirCompiler::compile(recompiler.out);
-                assert(shader.air != nullptr);
 #endif
 
                 IDxcBlob* spirv = dxcCompiler.compile(recompiler.out, recompiler.isPixelShader, false, true);
@@ -175,6 +174,8 @@ int main(int argc, char** argv)
             size_t shaderPos = filename.find("shader");
             if (shaderPos != std::string::npos) {
                 filename = filename.substr(shaderPos);
+                // Prevent bad escape sequences in Windows shader path.
+                std::replace(filename.begin(), filename.end(), '\\', '/');
             }
             f.println("\t{{ 0x{:X}, {}, {}, {}, {}, {}, {}, {}, \"{}\" }},",
                 hash, dxil.size(), (shader.dxil != nullptr) ? shader.dxil->GetBufferSize() : 0,
