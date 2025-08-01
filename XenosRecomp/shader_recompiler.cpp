@@ -78,32 +78,25 @@ struct DeclUsageLocation
 static constexpr DeclUsageLocation USAGE_LOCATIONS[] =
 {
     { DeclUsage::Position, 0, 0 },
-    { DeclUsage::Normal, 0, 1 },
-    { DeclUsage::Tangent, 0, 2 },
-    { DeclUsage::Position, 2, 14 }, // placeholder to compile
-    { DeclUsage::Binormal, 0, 3 },
-    { DeclUsage::Binormal, 1, 10 },
-    { DeclUsage::Binormal, 2, 11 },
-    { DeclUsage::Position, 3, 16 }, // placeholder to compile
-    { DeclUsage::TexCoord, 0, 4 },
-    { DeclUsage::TexCoord, 1, 5 },
-    { DeclUsage::TexCoord, 2, 6 },
-    { DeclUsage::TexCoord, 3, 7 },
-    { DeclUsage::Color, 0, 8 },
-    { DeclUsage::BlendIndices, 0, 9 },
-    { DeclUsage::BlendWeight, 0, 10 },
-    { DeclUsage::Color, 1, 11 },
-    { DeclUsage::TexCoord, 4, 12 },
-    { DeclUsage::TexCoord, 5, 13 },
-    { DeclUsage::TexCoord, 6, 14 },
-    { DeclUsage::TexCoord, 7, 15 },
-    { DeclUsage::Position, 1, 15 },
-    { DeclUsage::Normal, 1, 8 },
-    { DeclUsage::Normal, 2, 9 },
-    { DeclUsage::Normal, 3, 10 },
-    { DeclUsage::Tangent, 1, 11 },
-    { DeclUsage::Tangent, 2, 12 },
-    { DeclUsage::Tangent, 3, 13 },
+    { DeclUsage::Position, 1, 1 },
+    { DeclUsage::Position, 2, 2 },
+    { DeclUsage::Position, 3, 3 },
+    { DeclUsage::Normal, 0, 4 },
+    { DeclUsage::Normal, 1, 5 },
+    { DeclUsage::Normal, 2, 6 },
+    { DeclUsage::Normal, 3, 7 },
+    { DeclUsage::Tangent, 0, 8 },
+    { DeclUsage::Tangent, 1, 9 },
+    { DeclUsage::Tangent, 2, 10 },
+    { DeclUsage::Tangent, 3, 11 },
+    { DeclUsage::Binormal, 0, 12 },
+    { DeclUsage::TexCoord, 0, 13 },
+    { DeclUsage::TexCoord, 1, 14 },
+    { DeclUsage::TexCoord, 2, 15 },
+    { DeclUsage::TexCoord, 3, 16 },
+    { DeclUsage::Color, 0, 17 },
+    { DeclUsage::BlendIndices, 0, 18 },
+    { DeclUsage::BlendWeight, 0, 19 },
 };
 
 static constexpr std::pair<DeclUsage, size_t> INTERPOLATORS[] =
@@ -1576,13 +1569,20 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
             print("{0} i{1}{2}", usageType, USAGE_VARIABLES[uint32_t(vertexElement.usage)],
                 uint32_t(vertexElement.usageIndex));
 
+            bool foundUsage = false;
             for (auto& usageLocation : USAGE_LOCATIONS)
             {
                 if (usageLocation.usage == vertexElement.usage && usageLocation.usageIndex == vertexElement.usageIndex)
                 {
                     println(" [[attribute({})]];", usageLocation.location);
+                    foundUsage = true;
                     break;
                 }
+            }
+
+            if (!foundUsage) {
+                fmt::println("Missing mapping for vertex element usage: {} {}", USAGE_VARIABLES[uint32_t(vertexElement.usage)], uint32_t(vertexElement.usageIndex));
+                exit(1);
             }
 
             vertexElements.emplace(uint32_t(vertexElement.address), vertexElement);
