@@ -833,7 +833,7 @@ void ShaderRecompiler::recompile(const AluInstruction& instr)
                 if (instr.src1Register == csmSampleRegister) {
                     // Binary depth comparison will kill bicubic sampling,
                     // so don't do the comparison at all.
-                    print("{}", v0.expression);
+                    print("g_SpecConstants() & SPEC_CONSTANT_BICUBIC_CSM_FILTER ? {0} : (float4)({0} >= {1})", v0.expression, v1.expression);
                     csmSampleRegister = UINT32_MAX;
                 } else {
                     print("{} >= {}", v0.expression, v1.expression);
@@ -2211,21 +2211,7 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
                             specConstantsMask |= SPEC_CONSTANT_BICUBIC_CSM_FILTER;
 
                             indent();
-                            out += "if (g_SpecConstants() & SPEC_CONSTANT_BICUBIC_CSM_FILTER)\n";
-                            indent();
-                            out += "{\n";
-
-                            // Only emit one texture fetch for bicubic
-                            if (csmSampleRegister == UINT32_MAX) {
-                                ++indentation;
-                                recompile(textureFetch, true);
-                                --indentation;
-                            }
-
-                            indent();
-                            out += "}\n";
-                            indent();
-                            out += "else\n";
+                            out += "if (!(g_SpecConstants() & SPEC_CONSTANT_BICUBIC_CSM_FILTER))\n";
                             indent();
                             out += "{\n";
 
@@ -2235,6 +2221,21 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
 
                             indent();
                             out += "}\n";
+
+                            // Only emit one texture fetch for bicubic
+                            if (csmSampleRegister == UINT32_MAX) {
+                                indent();
+                                out += "else\n";
+                                indent();
+                                out += "{\n";
+
+                                ++indentation;
+                                recompile(textureFetch, true);
+                                --indentation;
+
+                                indent();
+                                out += "}\n";
+                            }
                         }
                         else
                     #endif
