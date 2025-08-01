@@ -128,6 +128,8 @@ static constexpr std::string_view TEXTURE_DIMENSIONS[] =
     "Cube" 
 };
 
+static uint32_t csmSampleRegister = UINT32_MAX;
+
 static FetchDestinationSwizzle getDestSwizzle(uint32_t dstSwizzle, uint32_t index)
 {
     return FetchDestinationSwizzle((dstSwizzle >> (index * 3)) & 0x7);
@@ -302,8 +304,13 @@ void ShaderRecompiler::recompile(const TextureFetchInstruction& instr, bool bicu
 #endif
 
     indent();
-    print("r{}.", instr.dstRegister);
-    printDstSwizzle(instr.dstSwizzle, false);
+    if (bicubic && instr.opcode == FetchOpcode::TextureFetch) {
+        print("r{}", instr.dstRegister);
+    }
+    else {
+        print("r{}.", instr.dstRegister);
+        printDstSwizzle(instr.dstSwizzle, false);
+    }
 
     out += " = ";
     switch (instr.opcode)
@@ -350,9 +357,11 @@ void ShaderRecompiler::recompile(const TextureFetchInstruction& instr, bool bicu
 
     out += dimension;
 
-#ifdef UNLEASHED_RECOMP
-    if (bicubic)
+#if defined(UNLEASHED_RECOMP) || defined(MARATHON_RECOMP)
+    if (bicubic && instr.opcode == FetchOpcode::TextureFetch) {
         out += "Bicubic";
+        csmSampleRegister = instr.dstRegister;
+    }
 #endif
 
     println("(");
@@ -821,7 +830,15 @@ void ShaderRecompiler::recompile(const AluInstruction& instr)
                 auto v1 = op(VECTOR_1);
                 operationResultComponentCount = std::max(v0.componentCount, v1.componentCount);
 
-                print("{} >= {}", v0.expression, v1.expression);
+                if (instr.src1Register == csmSampleRegister) {
+                    // Binary depth comparison will kill bicubic sampling,
+                    // so don't do the comparison at all.
+                    print("{}", v0.expression);
+                    csmSampleRegister = UINT32_MAX;
+                } else {
+                    print("{} >= {}", v0.expression, v1.expression);
+                }
+
                 break;
             }
 
@@ -2172,6 +2189,38 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
                             ++indentation;
                             recompile(textureFetch, true);
                             --indentation;
+
+                            indent();
+                            out += "}\n";
+                            indent();
+                            out += "else\n";
+                            indent();
+                            out += "{\n";
+
+                            ++indentation;
+                            recompile(textureFetch, false);
+                            --indentation;
+
+                            indent();
+                            out += "}\n";
+                        }
+                        else
+                    #elif MARATHON_RECOMP
+                        if (textureFetch.constIndex == 11 && textureFetch.opcode == FetchOpcode::TextureFetch) // g_smpCSM
+                        {
+                            specConstantsMask |= SPEC_CONSTANT_BICUBIC_CSM_FILTER;
+
+                            indent();
+                            out += "if (g_SpecConstants() & SPEC_CONSTANT_BICUBIC_CSM_FILTER)\n";
+                            indent();
+                            out += "{\n";
+
+                            // Only emit one texture fetch for bicubic
+                            if (csmSampleRegister == UINT32_MAX) {
+                                ++indentation;
+                                recompile(textureFetch, true);
+                                --indentation;
+                            }
 
                             indent();
                             out += "}\n";

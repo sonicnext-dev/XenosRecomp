@@ -4,6 +4,10 @@
 #define SPEC_CONSTANT_R11G11B10_NORMAL  (1 << 0)
 #define SPEC_CONSTANT_ALPHA_TEST        (1 << 1)
 
+#ifdef MARATHON_RECOMP
+    #define SPEC_CONSTANT_BICUBIC_CSM_FILTER (1 << 2)
+#endif
+
 #ifdef UNLEASHED_RECOMP
     #define SPEC_CONSTANT_BICUBIC_GI_FILTER (1 << 2)
     #define SPEC_CONSTANT_ALPHA_TO_COVERAGE (1 << 3)
@@ -423,6 +427,43 @@ float4 tfetch2DBicubic(constant Texture2DDescriptorHeap* textureHeap,
     return r;
 }
 
+float4 tfetch2DArrayBicubic(constant Texture2DArrayDescriptorHeap* textureHeap,
+                            constant SamplerDescriptorHeap* samplerHeap,
+                            uint resourceDescriptorIndex,
+                            uint samplerDescriptorIndex,
+                            float3 texCoord, float3 offset)
+{
+    texture2d_array<float> texture = textureHeap[resourceDescriptorIndex].tex;
+    sampler sampler = samplerHeap[samplerDescriptorIndex].samp;
+    uint3 dimensions = getTexture2DArrayDimensions(texture);
+
+    float x = texCoord.x * dimensions.x;
+    float y = texCoord.y * dimensions.y;
+    float z = texCoord.z * dimensions.z;
+
+    x -= 0.5f;
+    y -= 0.5f;
+    float px = floor(x);
+    float py = floor(y);
+    float fx = x - px;
+    float fy = y - py;
+
+    float g0x = g0(fx);
+    float g1x = g1(fx);
+    float h0x = h0(fx);
+    float h1x = h1(fx);
+    float h0y = h0(fy);
+    float h1y = h1(fy);
+
+    float4 r =
+        g0(fy) * (g0x * texture.sample(sampler, float2(px + h0x, py + h0y) / float2(dimensions.xy), z) +
+            g1x * texture.sample(sampler, float2(px + h1x, py + h0y) / float2(dimensions.xy), z)) +
+        g1(fy) * (g0x * texture.sample(sampler, float2(px + h0x, py + h1y) / float2(dimensions.xy), z) +
+            g1x * texture.sample(sampler, float2(px + h1x, py + h1y) / float2(dimensions.xy), z));
+
+    return r;
+}
+
 #else
 
 float4 tfetch2DBicubic(uint resourceDescriptorIndex, uint samplerDescriptorIndex, float2 texCoord, float2 offset)
@@ -453,6 +494,39 @@ float4 tfetch2DBicubic(uint resourceDescriptorIndex, uint samplerDescriptorIndex
             g1x * texture.Sample(samplerState, float2(px + h1x, py + h0y) / float2(dimensions))) +
         g1(fy) * (g0x * texture.Sample(samplerState, float2(px + h0x, py + h1y) / float2(dimensions)) +
             g1x * texture.Sample(samplerState, float2(px + h1x, py + h1y) / float2(dimensions)));
+
+    return r;
+}
+
+float4 tfetch2DArrayBicubic(uint resourceDescriptorIndex, uint samplerDescriptorIndex, float3 texCoord, float3 offset)
+{
+    Texture2DArray<float4> texture = g_Texture2DArrayDescriptorHeap[resourceDescriptorIndex];
+    SamplerState samplerState = g_SamplerDescriptorHeap[samplerDescriptorIndex];
+    uint3 dimensions = getTexture2DArrayDimensions(texture);
+
+    float x = texCoord.x * dimensions.x;
+    float y = texCoord.y * dimensions.y;
+    float z = texCoord.z * dimensions.z;
+
+    x -= 0.5f;
+    y -= 0.5f;
+    float px = floor(x);
+    float py = floor(y);
+    float fx = x - px;
+    float fy = y - py;
+
+    float g0x = g0(fx);
+    float g1x = g1(fx);
+    float h0x = h0(fx);
+    float h1x = h1(fx);
+    float h0y = h0(fy);
+    float h1y = h1(fy);
+
+    float4 r =
+        g0(fy) * (g0x * texture.Sample(samplerState, float3(float2(px + h0x, py + h0y) / float2(dimensions.xy), z)) +
+            g1x * texture.Sample(samplerState, float3(float2(px + h1x, py + h0y) / float2(dimensions.xy), z))) +
+        g1(fy) * (g0x * texture.Sample(samplerState, float3(float2(px + h0x, py + h1y) / float2(dimensions.xy), z)) +
+            g1x * texture.Sample(samplerState, float3(float2(px + h1x, py + h1y) / float2(dimensions.xy), z)));
 
     return r;
 }

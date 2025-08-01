@@ -61,6 +61,8 @@ IDxcBlob* DxcCompiler::compile(const std::string& shaderSource, bool compilePixe
 
 #ifdef UNLEASHED_RECOMP
     args[argCount++] = L"-DUNLEASHED_RECOMP";
+#elif defined(MARATHON_RECOMP)
+    args[argCount++] = L"-DMARATHON_RECOMP";
 #endif
 
     IDxcResult* result = nullptr;
