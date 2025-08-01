@@ -1531,14 +1531,14 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
     {
         out += "#ifdef __air__\n";
 
-        out += "float4 iPos [[position]];\n";
+        out += "\tfloat4 iPos [[position]];\n";
 
         for (auto& [usage, usageIndex] : INTERPOLATORS)
             println("\tfloat4 i{0}{1} [[user({2}{1})]];", USAGE_VARIABLES[uint32_t(usage)], usageIndex, USAGE_SEMANTICS[uint32_t(usage)]);
 
         out += "#else\n";
 
-        out += "float4 iPos : SV_Position;\n";
+        out += "\tfloat4 iPos : SV_Position;\n";
 
         for (auto& [usage, usageIndex] : INTERPOLATORS)
             println("\tfloat4 i{0}{1} : {2}{1};", USAGE_VARIABLES[uint32_t(usage)], usageIndex, USAGE_SEMANTICS[uint32_t(usage)]);
@@ -2022,7 +2022,6 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
             uint32_t count = 0;
             uint32_t sequence = 0;
             bool shouldReturn = false;
-            bool shouldCloseCurlyBracket = false;
 
             switch (cfInstr.opcode)
             {
@@ -2262,13 +2261,6 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
                     out += "\t\t\tbreak;\n";
                 }
             }
-
-            if (shouldCloseCurlyBracket)
-            {
-                --indentation;
-                indent();
-                out += "}\n";
-            }
         }
 
         controlFlowCode += 3;
@@ -2288,7 +2280,12 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
         out += "\t}\n";
 #endif
 
-    out += "\treturn output;\n";
+    if (!simpleControlFlow)
+        out += "\treturn output;\n";
+#ifdef UNLEASHED_RECOMP
+    else if (hasMtxProjection)
+        out += "\treturn output;\n";
+#endif
 
     out += "}";
 }
