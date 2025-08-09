@@ -2241,7 +2241,7 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
                 }
                 else
                 {
-                    out += "\tif (g_ClipPlaneEnabled) output.clipDistance = dot(output.oPos, g_ClipPlane);";
+                    out += "\tif (g_ClipPlaneEnabled) output.clipDistance = dot(output.oPos, g_ClipPlane);\n";
                     out += "\toutput.oPos.xy += g_HalfPixelOffset * output.oPos.w;\n";
                 }
 

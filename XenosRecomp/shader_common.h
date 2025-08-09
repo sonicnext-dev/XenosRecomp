@@ -72,7 +72,7 @@ struct PushConstants
 #define g_SwappedBlendWeights (*(reinterpret_cast<device uint*>(g_PushConstants.SharedConstants + 276)))
 #define g_HalfPixelOffset (*(reinterpret_cast<device float2*>(g_PushConstants.SharedConstants + 280)))
 #define g_AlphaThreshold (*(reinterpret_cast<device float*>(g_PushConstants.SharedConstants + 288)))
-#define g_ClipPlaneEnabled (*(reinterpret_cast<device float*>(g_PushConstants.SharedConstants + 292)))
+#define g_ClipPlaneEnabled (*(reinterpret_cast<device bool*>(g_PushConstants.SharedConstants + 292)))
 #define g_ClipPlane (*(reinterpret_cast<device float4*>(g_PushConstants.SharedConstants + 296)))
 
 #else
