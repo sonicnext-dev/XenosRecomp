@@ -2,13 +2,8 @@
 
 #include <fstream>
 #include <iterator>
+#include <spawn.h>
 #include <unistd.h>
-
-#ifdef UNLEASHED_RECOMP
-#define COMPILER_EXTRA_OPTIONS "-DUNLEASHED_RECOMP"
-#else
-#define COMPILER_EXTRA_OPTIONS
-#endif
 
 struct TemporaryPath
 {
@@ -21,6 +16,19 @@ struct TemporaryPath
         unlink(path.c_str());
     }
 };
+
+static int executeCommand(const char** argv)
+{
+    pid_t pid;
+    if (posix_spawn(&pid, argv[0], nullptr, nullptr, const_cast<char**>(argv), nullptr) != 0)
+        return -1;
+
+    int status;
+    if (waitpid(pid, &status, 0) == -1)
+        return -1;
+
+    return status;
+}
 
 std::vector<uint8_t> AirCompiler::compile(const std::string& shaderSource)
 {
@@ -45,16 +53,22 @@ std::vector<uint8_t> AirCompiler::compile(const std::string& shaderSource)
         std::exit(1);
     }
 
-    const std::string compileCommand = fmt::format("xcrun -sdk macosx metal " COMPILER_EXTRA_OPTIONS " -D__air__ -Wno-unused-variable -frecord-sources -gline-tables-only -o \"{}\" -c \"{}\"", irPath.path, sourcePath.path);
-    if (const int compileStatus = std::system(compileCommand.c_str()); compileStatus != 0)
+    const char* compileCommand[] = {
+        "/usr/bin/xcrun", "-sdk", "macosx", "metal", "-o", irPath.path.c_str(), "-c", sourcePath.path.c_str(), "-Wno-unused-variable", "-frecord-sources", "-gline-tables-only", "-D__air__",
+#ifdef UNLEASHED_RECOMP
+        "-DUNLEASHED_RECOMP",
+#endif
+        nullptr
+    };
+    if (const int compileStatus = executeCommand(compileCommand); compileStatus != 0)
     {
         fmt::println("Metal compiler exited with status: {}", compileStatus);
         fmt::println("Generated source:\n{}", shaderSource);
         std::exit(1);
     }
 
-    const std::string linkCommand = fmt::format(R"(xcrun -sdk macosx metallib -o "{}" "{}")", metalLibPath.path, irPath.path);
-    if (const int linkStatus = std::system(linkCommand.c_str()); linkStatus != 0)
+    const char* linkCommand[] = { "/usr/bin/xcrun", "-sdk", "macosx", "metallib", "-o", metalLibPath.path.c_str(), irPath.path.c_str(), nullptr };
+    if (const int linkStatus = executeCommand(linkCommand); linkStatus != 0)
     {
         fmt::println("Metal linker exited with status: {}", linkStatus);
         fmt::println("Generated source:\n{}", shaderSource);

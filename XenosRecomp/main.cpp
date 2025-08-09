@@ -1,3 +1,7 @@
+#include <deque>
+#include <mutex>
+#include <thread>
+
 #include "shader.h"
 #include "shader_recompiler.h"
 #include "dxc_compiler.h"
@@ -33,6 +37,39 @@ struct RecompiledShader
     std::vector<uint8_t> air;
     uint32_t specConstantsMask = 0;
 };
+
+void recompileShader(RecompiledShader& shader, const std::string_view include, std::atomic<uint32_t>& progress, uint32_t numShaders)
+{
+    thread_local ShaderRecompiler recompiler;
+    recompiler = {};
+    recompiler.recompile(shader.data, include);
+
+    shader.specConstantsMask = recompiler.specConstantsMask;
+
+    thread_local DxcCompiler dxcCompiler;
+
+#ifdef XENOS_RECOMP_DXIL
+    shader.dxil = dxcCompiler.compile(recompiler.out, recompiler.isPixelShader, recompiler.specConstantsMask != 0, false);
+    assert(shader.dxil != nullptr);
+    assert(*(reinterpret_cast<uint32_t *>(shader.dxil->GetBufferPointer()) + 1) != 0 && "DXIL was not signed properly!");
+#endif
+
+#ifdef XENOS_RECOMP_AIR
+    shader.air = AirCompiler::compile(recompiler.out);
+#endif
+
+    IDxcBlob* spirv = dxcCompiler.compile(recompiler.out, recompiler.isPixelShader, false, true);
+    assert(spirv != nullptr);
+
+    bool result = smolv::Encode(spirv->GetBufferPointer(), spirv->GetBufferSize(), shader.spirv, smolv::kEncodeFlagStripDebugInfo);
+    assert(result);
+
+    spirv->Release();
+
+    size_t currentProgress = ++progress;
+    if ((currentProgress % 10) == 0 || (currentProgress == numShaders - 1))
+        fmt::println("Recompiling shaders... {}%", currentProgress / float(numShaders) * 100.0f);
+}
 
 int main(int argc, char** argv)
 {
@@ -120,42 +157,42 @@ int main(int argc, char** argv)
                 files.emplace_back(std::move(fileData));
         }
 
+        std::mutex shaderQueueMutex;
+        std::deque<XXH64_hash_t> shaderQueue;
+        for (const auto& [hash, _] : shaders)
+        {
+            shaderQueue.emplace_back(hash);
+        }
+
+        const uint32_t numThreads = std::max(std::thread::hardware_concurrency(), 1u);
+        fmt::println("Recompiling shaders with {} threads", numThreads);
+
         std::atomic<uint32_t> progress = 0;
-
-        std::for_each(std::execution::par_unseq, shaders.begin(), shaders.end(), [&](auto& hashShaderPair)
+        std::vector<std::thread> threads;
+        threads.reserve(numThreads);
+        for (uint32_t i = 0; i < numThreads; i++)
+        {
+            threads.emplace_back([&]
             {
-                auto& shader = hashShaderPair.second;
-
-                thread_local ShaderRecompiler recompiler;
-                recompiler = {};
-                recompiler.recompile(shader.data, include);
-
-                shader.specConstantsMask = recompiler.specConstantsMask;
-
-                thread_local DxcCompiler dxcCompiler;
-
-#ifdef XENOS_RECOMP_DXIL
-                shader.dxil = dxcCompiler.compile(recompiler.out, recompiler.isPixelShader, recompiler.specConstantsMask != 0, false);
-                assert(shader.dxil != nullptr);
-                assert(*(reinterpret_cast<uint32_t *>(shader.dxil->GetBufferPointer()) + 1) != 0 && "DXIL was not signed properly!");
-#endif
-
-#ifdef XENOS_RECOMP_AIR
-                shader.air = AirCompiler::compile(recompiler.out);
-#endif
-
-                IDxcBlob* spirv = dxcCompiler.compile(recompiler.out, recompiler.isPixelShader, false, true);
-                assert(spirv != nullptr);
-
-                bool result = smolv::Encode(spirv->GetBufferPointer(), spirv->GetBufferSize(), shader.spirv, smolv::kEncodeFlagStripDebugInfo);
-                assert(result);
-
-                spirv->Release();
-
-                size_t currentProgress = ++progress;
-                if ((currentProgress % 10) == 0 || (currentProgress == shaders.size() - 1))
-                    fmt::println("Recompiling shaders... {}%", currentProgress / float(shaders.size()) * 100.0f);
+                while (true)
+                {
+                    XXH64_hash_t shaderHash;
+                    {
+                        std::lock_guard lock(shaderQueueMutex);
+                        if (shaderQueue.empty()) {
+                            return;
+                        }
+                        shaderHash = shaderQueue.front();
+                        shaderQueue.pop_front();
+                    }
+                    recompileShader(shaders[shaderHash], include, progress, shaders.size());
+                }
             });
+        }
+        for (auto& thread : threads)
+        {
+            thread.join();
+        }
 
         fmt::println("Creating shader cache...");
 

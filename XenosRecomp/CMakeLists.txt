@@ -34,13 +34,6 @@ target_precompile_headers(XenosRecomp PRIVATE pch.h)
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
     target_compile_options(XenosRecomp PRIVATE -Wno-switch -Wno-unused-variable -Wno-null-arithmetic -fms-extensions)
-
-    include(CheckCXXSymbolExists)
-    check_cxx_symbol_exists(_LIBCPP_VERSION version LIBCPP)
-    if(LIBCPP)
-        # Allows using std::execution
-        target_compile_options(XenosRecomp PRIVATE -fexperimental-library)
-    endif()
 endif()
 
 if (WIN32)
