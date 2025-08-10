@@ -35,9 +35,9 @@ struct PushConstants
 #define g_SwappedTangents          vk::RawBufferLoad<uint>(g_PushConstants.SharedConstants + 272)
 #define g_SwappedBlendWeights      vk::RawBufferLoad<uint>(g_PushConstants.SharedConstants + 276)
 #define g_HalfPixelOffset          vk::RawBufferLoad<float2>(g_PushConstants.SharedConstants + 280)
-#define g_AlphaThreshold           vk::RawBufferLoad<float>(g_PushConstants.SharedConstants + 288)
-#define g_ClipPlaneEnabled         vk::RawBufferLoad<bool>(g_PushConstants.SharedConstants + 292)
-#define g_ClipPlane                vk::RawBufferLoad<float4>(g_PushConstants.SharedConstants + 296)
+#define g_ClipPlane                vk::RawBufferLoad<float4>(g_PushConstants.SharedConstants + 288)
+#define g_ClipPlaneEnabled         vk::RawBufferLoad<bool>(g_PushConstants.SharedConstants + 304)
+#define g_AlphaThreshold           vk::RawBufferLoad<float>(g_PushConstants.SharedConstants + 308)
 
 [[vk::constant_id(0)]] const uint g_SpecConstants = 0;
 
@@ -71,9 +71,9 @@ struct PushConstants
 #define g_SwappedTangents (*(reinterpret_cast<device uint*>(g_PushConstants.SharedConstants + 272)))
 #define g_SwappedBlendWeights (*(reinterpret_cast<device uint*>(g_PushConstants.SharedConstants + 276)))
 #define g_HalfPixelOffset (*(reinterpret_cast<device float2*>(g_PushConstants.SharedConstants + 280)))
-#define g_AlphaThreshold (*(reinterpret_cast<device float*>(g_PushConstants.SharedConstants + 288)))
-#define g_ClipPlaneEnabled (*(reinterpret_cast<device bool*>(g_PushConstants.SharedConstants + 292)))
-#define g_ClipPlane (*(reinterpret_cast<device float4*>(g_PushConstants.SharedConstants + 296)))
+#define g_ClipPlane (*(reinterpret_cast<device float4*>(g_PushConstants.SharedConstants + 288)))
+#define g_ClipPlaneEnabled (*(reinterpret_cast<device bool*>(g_PushConstants.SharedConstants + 304)))
+#define g_AlphaThreshold (*(reinterpret_cast<device float*>(g_PushConstants.SharedConstants + 308)))
 
 #else
 
@@ -85,9 +85,9 @@ struct PushConstants
     uint g_SwappedTangents : packoffset(c17.x);  \
     uint g_SwappedBlendWeights : packoffset(c17.y); \
     float2 g_HalfPixelOffset : packoffset(c17.z); \
-    float g_AlphaThreshold : packoffset(c18.x); \
-    bool g_ClipPlaneEnabled : packoffset(c18.y); \
-    float4 g_ClipPlane : packoffset(c18.z);
+    float4 g_ClipPlane : packoffset(c18.x); \
+    bool g_ClipPlaneEnabled : packoffset(c19.x); \
+    float g_AlphaThreshold : packoffset(c19.y);
 
 uint g_SpecConstants();
 
