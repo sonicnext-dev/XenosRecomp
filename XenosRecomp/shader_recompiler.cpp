@@ -1669,18 +1669,20 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
         out += "#ifdef __air__\n";
 
         out += "\tfloat4 oPos [[position]] [[invariant]];\n";
-        out += "\tfloat clipDistance [[clip_distance]];\n";
 
         for (auto& [usage, usageIndex] : INTERPOLATORS)
             print("\tfloat4 o{0}{1} [[user({2}{1})]];\n", USAGE_VARIABLES[uint32_t(usage)], usageIndex, USAGE_SEMANTICS[uint32_t(usage)]);
 
+        out += "\tfloat clipDistance [[clip_distance]];\n";
+
         out += "#else\n";
 
         out += "\tprecise float4 oPos : SV_Position;\n";
-        out += "\tfloat clipDistance : SV_ClipDistance;\n";
 
         for (auto& [usage, usageIndex] : INTERPOLATORS)
             print("\tfloat4 o{0}{1} : {2}{1};\n", USAGE_VARIABLES[uint32_t(usage)], usageIndex, USAGE_SEMANTICS[uint32_t(usage)]);
+
+        out += "\tfloat clipDistance : SV_ClipDistance;\n";
 
         out += "#endif\n";
     }
