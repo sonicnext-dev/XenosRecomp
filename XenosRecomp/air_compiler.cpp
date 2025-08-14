@@ -54,7 +54,7 @@ std::vector<uint8_t> AirCompiler::compile(const std::string& shaderSource)
     }
 
     const char* compileCommand[] = {
-        "/usr/bin/xcrun", "-sdk", "macosx", "metal", "-o", irPath.path.c_str(), "-c", sourcePath.path.c_str(), "-Wno-unused-variable", "-frecord-sources", "-gline-tables-only", "-D__air__",
+        "/usr/bin/xcrun", "-sdk", "macosx", "metal", "-o", irPath.path.c_str(), "-c", sourcePath.path.c_str(), "-Wno-unused-variable", "-frecord-sources", "-gline-tables-only", "-fmetal-math-mode=relaxed", "-D__air__",
 #ifdef UNLEASHED_RECOMP
         "-DUNLEASHED_RECOMP",
 #endif
