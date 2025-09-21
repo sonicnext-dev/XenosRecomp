@@ -58,6 +58,9 @@ std::vector<uint8_t> AirCompiler::compile(const std::string& shaderSource)
 #ifdef UNLEASHED_RECOMP
         "-DUNLEASHED_RECOMP",
 #endif
+#ifdef MARATHON_RECOMP
+        "-DMARATHON_RECOMP",
+#endif
         nullptr
     };
     if (const int compileStatus = executeCommand(compileCommand); compileStatus != 0)

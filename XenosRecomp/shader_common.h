@@ -10,6 +10,11 @@
     #define SPEC_CONSTANT_REVERSE_Z         (1 << 4)
 #endif
 
+#ifdef MARATHON_RECOMP
+    #define SPEC_CONSTANT_CONDITIONAL_SURVEY    (1 << 5)
+    #define SPEC_CONSTANT_CONDITIONAL_RENDERING (1 << 6)
+#endif
+
 #if defined(__air__) || !defined(__cplusplus) || defined(__INTELLISENSE__)
 
 #ifndef __air__
@@ -28,16 +33,18 @@ struct PushConstants
 
 [[vk::push_constant]] ConstantBuffer<PushConstants> g_PushConstants;
 
-#define g_Booleans                 vk::RawBufferLoad<uint>(g_PushConstants.SharedConstants + 256)
-#define g_SwappedTexcoords         vk::RawBufferLoad<uint>(g_PushConstants.SharedConstants + 260)
-#define g_SwappedNormals           vk::RawBufferLoad<uint>(g_PushConstants.SharedConstants + 264)
-#define g_SwappedBinormals         vk::RawBufferLoad<uint>(g_PushConstants.SharedConstants + 268)
-#define g_SwappedTangents          vk::RawBufferLoad<uint>(g_PushConstants.SharedConstants + 272)
-#define g_SwappedBlendWeights      vk::RawBufferLoad<uint>(g_PushConstants.SharedConstants + 276)
-#define g_HalfPixelOffset          vk::RawBufferLoad<float2>(g_PushConstants.SharedConstants + 280)
-#define g_ClipPlane                vk::RawBufferLoad<float4>(g_PushConstants.SharedConstants + 288)
-#define g_ClipPlaneEnabled         vk::RawBufferLoad<bool>(g_PushConstants.SharedConstants + 304)
-#define g_AlphaThreshold           vk::RawBufferLoad<float>(g_PushConstants.SharedConstants + 308)
+#define g_Booleans                  vk::RawBufferLoad<uint>(g_PushConstants.SharedConstants + 256)
+#define g_SwappedTexcoords          vk::RawBufferLoad<uint>(g_PushConstants.SharedConstants + 260)
+#define g_SwappedNormals            vk::RawBufferLoad<uint>(g_PushConstants.SharedConstants + 264)
+#define g_SwappedBinormals          vk::RawBufferLoad<uint>(g_PushConstants.SharedConstants + 268)
+#define g_SwappedTangents           vk::RawBufferLoad<uint>(g_PushConstants.SharedConstants + 272)
+#define g_SwappedBlendWeights       vk::RawBufferLoad<uint>(g_PushConstants.SharedConstants + 276)
+#define g_HalfPixelOffset           vk::RawBufferLoad<float2>(g_PushConstants.SharedConstants + 280)
+#define g_ClipPlane                 vk::RawBufferLoad<float4>(g_PushConstants.SharedConstants + 288)
+#define g_ClipPlaneEnabled          vk::RawBufferLoad<bool>(g_PushConstants.SharedConstants + 304)
+#define g_AlphaThreshold            vk::RawBufferLoad<float>(g_PushConstants.SharedConstants + 308)
+#define g_conditionalSurveyIndex    vk::RawBufferLoad<uint>(g_PushConstants.SharedConstants + 312)
+#define g_conditionalRenderingIndex vk::RawBufferLoad<uint>(g_PushConstants.SharedConstants + 316)
 
 [[vk::constant_id(0)]] const uint g_SpecConstants = 0;
 
@@ -74,6 +81,8 @@ struct PushConstants
 #define g_ClipPlane (*(reinterpret_cast<device float4*>(g_PushConstants.SharedConstants + 288)))
 #define g_ClipPlaneEnabled (*(reinterpret_cast<device bool*>(g_PushConstants.SharedConstants + 304)))
 #define g_AlphaThreshold (*(reinterpret_cast<device float*>(g_PushConstants.SharedConstants + 308)))
+#define g_conditionalSurveyIndex (*(reinterpret_cast<device uint*>(g_PushConstants.SharedConstants + 312)))
+#define g_conditionalRenderingIndex (*(reinterpret_cast<device uint*>(g_PushConstants.SharedConstants + 316)))
 
 #else
 
@@ -87,7 +96,9 @@ struct PushConstants
     float2 g_HalfPixelOffset : packoffset(c17.z); \
     float4 g_ClipPlane : packoffset(c18.x); \
     bool g_ClipPlaneEnabled : packoffset(c19.x); \
-    float g_AlphaThreshold : packoffset(c19.y);
+    float g_AlphaThreshold : packoffset(c19.y); \
+    uint g_conditionalSurveyIndex : packoffset(c19.z); \
+    uint g_conditionalRenderingIndex : packoffset(c19.w);
 
 uint g_SpecConstants();
 
@@ -193,6 +204,11 @@ struct SamplerDescriptorHeap
     sampler samp;
 };
 
+struct AtomicUintBuffer
+{
+    device atomic_uint* buffer;
+};
+
 uint2 getTexture2DDimensions(texture2d<float> texture)
 {
     return uint2(texture.get_width(), texture.get_height());
@@ -264,6 +280,10 @@ Texture2D<float4> g_Texture2DDescriptorHeap[] : register(t0, space0);
 Texture2DArray<float4> g_Texture2DArrayDescriptorHeap[] : register(t0, space1);
 TextureCube<float4> g_TextureCubeDescriptorHeap[] : register(t0, space2);
 SamplerState g_SamplerDescriptorHeap[] : register(s0, space3);
+
+#ifdef MARATHON_RECOMP
+RWStructuredBuffer<uint> g_ConditionalSurveyBuffer : register(u0, space4);
+#endif
 
 uint2 getTexture2DDimensions(Texture2D<float4> texture)
 {
@@ -536,6 +556,34 @@ float computeMipLevel(float2 pixelCoord)
     float deltaMaxSqr = max(dot(dx, dx), dot(dy, dy));
     return max(0.0, 0.5 * log2(deltaMaxSqr));
 }
+
+#ifdef __air__
+
+uint atomicLoadUint(device AtomicUintBuffer* buffer, uint index)
+{
+    return atomic_load_explicit(&buffer->buffer[index], memory_order_relaxed);
+}
+
+uint atomicFetchAddUint(device AtomicUintBuffer* buffer, uint index, uint value)
+{
+    return atomic_fetch_add_explicit(&buffer->buffer[index], value, memory_order_relaxed);
+}
+
+#else
+
+uint atomicLoadUint(RWStructuredBuffer<uint> buffer, uint index)
+{
+    return buffer[index];
+}
+
+uint atomicFetchAddUint(RWStructuredBuffer<uint> buffer, uint index, uint value)
+{
+    uint originalValue;
+    InterlockedAdd(buffer[index], value, originalValue);
+    return originalValue;
+}
+
+#endif
 
 #endif
 
