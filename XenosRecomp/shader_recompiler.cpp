@@ -1692,16 +1692,33 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
     out += "#ifdef __air__\n";
 
     if (isPixelShader)
+    {
         out += "[[fragment]]\n";
+
+        auto pixelShader = reinterpret_cast<const PixelShader*>(shader);
+        if (!(pixelShader->outputs & PIXEL_SHADER_OUTPUT_DEPTH))
+            out += "[[early_fragment_tests]]\n";
+    }
     else
         out += "[[vertex]]\n";
 
-    out += "#elif !defined(__spirv__)\n";
+    out += "#else\n";
+
+    out += "#if !defined(__spirv__)\n";
 
     if (isPixelShader)
         out += "[shader(\"pixel\")]\n";
     else
         out += "[shader(\"vertex\")]\n";
+
+    out += "#endif\n";
+
+    if (isPixelShader)
+    {
+        auto pixelShader = reinterpret_cast<const PixelShader*>(shader);
+        if (!(pixelShader->outputs & PIXEL_SHADER_OUTPUT_DEPTH))
+            out += "[earlydepthstencil]\n";
+    }
 
     out += "#endif\n";
 
@@ -1718,6 +1735,9 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
         out += "\tconstant Texture2DArrayDescriptorHeap* g_Texture2DArrayDescriptorHeap [[buffer(1)]],\n";
         out += "\tconstant TextureCubeDescriptorHeap* g_TextureCubeDescriptorHeap [[buffer(2)]],\n";
         out += "\tconstant SamplerDescriptorHeap* g_SamplerDescriptorHeap [[buffer(3)]],\n";
+#ifdef MARATHON_RECOMP
+        out += "\tdevice AtomicUintBuffer* g_ConditionalSurveyBuffer [[buffer(4)]],\n";
+#endif
         out += "\tconstant PushConstants& g_PushConstants [[buffer(8)]]\n";
 
         out += "#else\n";
@@ -1903,6 +1923,26 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
     {
 #ifdef UNLEASHED_RECOMP
         out += "\tfloat2 pixelCoord = 0.0;\n";
+#endif
+#ifdef MARATHON_RECOMP
+        specConstantsMask |= SPEC_CONSTANT_CONDITIONAL_RENDERING;
+
+        out += "\tBRANCH if ((g_SpecConstants() & SPEC_CONSTANT_CONDITIONAL_RENDERING))\n";
+        out += "\t{\n";
+
+        out += "\t\tuint sampleCount = atomicLoadUint(g_ConditionalSurveyBuffer, g_conditionalSurveyIndex);\n";
+        out += "\t\tBRANCH if (sampleCount == 0)\n";
+        out += "\t\t{\n";
+
+        println("#ifdef __air__");
+        println("\t\t\tdiscard_fragment();");
+        println("#else");
+        println("\t\t\tdiscard;");
+        println("#endif");
+
+        out += "\t\t}\n";
+
+        out += "\t}\n";
 #endif
     }
 
@@ -2236,6 +2276,21 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
                     out += "\toutput.oC0.w *= 1.0 + computeMipLevel(pixelCoord) * 0.25;\n";
                     indent();
                     out += "\toutput.oC0.w = 0.5 + (output.oC0.w - g_AlphaThreshold) / max(fwidth(output.oC0.w), 1e-6);\n";
+
+                    indent();
+                    out += "}\n";
+                #endif
+
+                #ifdef MARATHON_RECOMP
+                    specConstantsMask |= SPEC_CONSTANT_CONDITIONAL_SURVEY;
+
+                    indent();
+                    out += "BRANCH if (g_SpecConstants() & SPEC_CONSTANT_CONDITIONAL_SURVEY)\n";
+                    indent();
+                    out += "{\n";
+
+                    indent();
+                    out += "\tatomicFetchAddUint(g_ConditionalSurveyBuffer, g_conditionalSurveyIndex, 1);\n";
 
                     indent();
                     out += "}\n";
