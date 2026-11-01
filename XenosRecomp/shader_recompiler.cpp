@@ -1527,14 +1527,14 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
         out += "\tfloat4 iPos [[position]];\n";
 
         for (auto& [usage, usageIndex] : INTERPOLATORS)
-            println("\tfloat4 i{0}{1} [[user({2}{1})]];", USAGE_VARIABLES[uint32_t(usage)], usageIndex, USAGE_SEMANTICS[uint32_t(usage)]);
+            println("\tfloat4 i{0}{1} [[user({2}{1}), centroid_perspective]];", USAGE_VARIABLES[uint32_t(usage)], usageIndex, USAGE_SEMANTICS[uint32_t(usage)]);
 
         out += "#else\n";
 
         out += "\tfloat4 iPos : SV_Position;\n";
 
         for (auto& [usage, usageIndex] : INTERPOLATORS)
-            println("\tfloat4 i{0}{1} : {2}{1};", USAGE_VARIABLES[uint32_t(usage)], usageIndex, USAGE_SEMANTICS[uint32_t(usage)]);
+            println("\tcentroid float4 i{0}{1} : {2}{1};", USAGE_VARIABLES[uint32_t(usage)], usageIndex, USAGE_SEMANTICS[uint32_t(usage)]);
 
         out += "#endif\n";
     }
