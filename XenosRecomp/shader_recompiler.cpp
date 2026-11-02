@@ -285,7 +285,7 @@ void ShaderRecompiler::recompile(const TextureFetchInstruction& instr, bool bicu
         constNamePtr = constName.c_str();
     }
 
-#ifdef UNLEASHED_RECOMP
+#if defined(UNLEASHED_RECOMP) || defined(MARATHON_RECOMP)
     if (instr.constIndex == 0 && instr.dimension == TextureDimension::Texture2D)
     {
         indent();
@@ -1904,7 +1904,7 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
     out += "\tfloat ps = 0.0;\n";
     if (isPixelShader)
     {
-#ifdef UNLEASHED_RECOMP
+#if defined(UNLEASHED_RECOMP) or defined(MARATHON_RECOMP)
         out += "\tfloat2 pixelCoord = 0.0;\n";
 #endif
 #ifdef MARATHON_RECOMP
@@ -2247,7 +2247,7 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
                     indent();
                     out += "}\n";
 
-                #ifdef UNLEASHED_RECOMP
+                #if defined(UNLEASHED_RECOMP) or defined(MARATHON_RECOMP)
                     specConstantsMask |= SPEC_CONSTANT_ALPHA_TO_COVERAGE;
 
                     indent();

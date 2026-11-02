@@ -11,6 +11,7 @@
 #endif
 
 #ifdef MARATHON_RECOMP
+    #define SPEC_CONSTANT_ALPHA_TO_COVERAGE (1 << 3)
     #define SPEC_CONSTANT_CONDITIONAL_RENDERING (1 << 5)
 #endif
 
