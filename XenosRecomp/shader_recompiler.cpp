@@ -266,7 +266,7 @@ void ShaderRecompiler::recompile(const TextureFetchInstruction& instr, bool bicu
 
     std::string constName;
     const char* constNamePtr = nullptr;
-#ifdef UNLEASHED_RECOMP
+#if defined(SPEC_CONSTANT_REVERSE_Z) && defined(UNLEASHED_RECOMP)
     bool subtractFromOne = false;
 #endif
 
@@ -275,7 +275,7 @@ void ShaderRecompiler::recompile(const TextureFetchInstruction& instr, bool bicu
     {
         constNamePtr = findResult->second;
 
-    #ifdef UNLEASHED_RECOMP
+    #if defined(SPEC_CONSTANT_REVERSE_Z) && defined(UNLEASHED_RECOMP)
         subtractFromOne = hasMtxPrevInvViewProjection && strcmp(constNamePtr, "sampZBuffer") == 0;
     #endif
     }
@@ -285,7 +285,7 @@ void ShaderRecompiler::recompile(const TextureFetchInstruction& instr, bool bicu
         constNamePtr = constName.c_str();
     }
 
-#if defined(UNLEASHED_RECOMP) || defined(MARATHON_RECOMP)
+#ifdef SPEC_CONSTANT_ALPHA_TO_COVERAGE
     if (instr.constIndex == 0 && instr.dimension == TextureDimension::Texture2D)
     {
         indent();
@@ -310,7 +310,7 @@ void ShaderRecompiler::recompile(const TextureFetchInstruction& instr, bool bicu
     {
     case FetchOpcode::TextureFetch:
     {
-    #ifdef UNLEASHED_RECOMP
+    #if defined(SPEC_CONSTANT_REVERSE_Z) && defined(UNLEASHED_RECOMP)
         if (subtractFromOne)
             out += "1.0 - ";
     #endif
@@ -350,7 +350,7 @@ void ShaderRecompiler::recompile(const TextureFetchInstruction& instr, bool bicu
 
     out += dimension;
 
-#ifdef UNLEASHED_RECOMP
+#ifdef SPEC_CONSTANT_BICUBIC_GI_FILTER
     if (bicubic)
         out += "Bicubic";
 #endif
@@ -501,7 +501,7 @@ void ShaderRecompiler::recompile(const AluInstruction& instr)
                     const char* constantName = reinterpret_cast<const char*>(constantTableData + findResult->second->name);
                     if (findResult->second->registerCount > 1)
                     {
-                    #ifdef UNLEASHED_RECOMP
+                    #if defined(SPEC_CONSTANT_REVERSE_Z) && defined(UNLEASHED_RECOMP)
                         if (hasMtxProjection && strcmp(constantName, "g_MtxProjection") == 0)
                         {
                             regFormatted = fmt::format("(iterationIndex == 0 ? mtxProjectionReverseZ[{0}] : mtxProjection[{0}])",
@@ -655,7 +655,7 @@ void ShaderRecompiler::recompile(const AluInstruction& instr)
             case ExportRegister::VSPosition:
                 exportRegister = "output.oPos";
 
-            #ifdef UNLEASHED_RECOMP
+            #if defined(SPEC_CONSTANT_REVERSE_Z) && defined(UNLEASHED_RECOMP)
                 if (hasMtxProjection)
                 {
                     indent();
@@ -1312,22 +1312,28 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
 
         const char* constantName = reinterpret_cast<const char*>(constantTableData + constantInfo->name);
 
+    #if defined(SPEC_CONSTANT_REVERSE_Z) && defined(UNLEASHED_RECOMP)
+        hasMtxProjection = !isPixelShader && strcmp(constantName, "g_MtxProjection") == 0;
+        hasMtxPrevInvViewProjection = isPixelShader && strcmp(constantName, "g_MtxPrevInvViewProjection") == 0;
+    #endif
+
     #ifdef UNLEASHED_RECOMP
         if (!isPixelShader)
         {
-            if (strcmp(constantName, "g_MtxProjection") == 0)
-                hasMtxProjection = true;
-            else if (strcmp(constantName, "g_InstanceTypes") == 0)
+            if (strcmp(constantName, "g_InstanceTypes") == 0)
                 isMetaInstancer = true;
             else if (strcmp(constantName, "g_IndexCount") == 0)
                 hasIndexCount = true;
         }
-        else
-        {
-            if (strcmp(constantName, "g_MtxPrevInvViewProjection") == 0)
-                hasMtxPrevInvViewProjection = true;
-        }
     #endif
+    }
+
+    for (uint32_t i = 0; i < constantTableContainer->constantTable.constants; i++)
+    {
+        const auto constantInfo = reinterpret_cast<const ConstantInfo*>(
+            constantTableData + constantTableContainer->constantTable.constantInfo + i * sizeof(ConstantInfo));
+
+        const char* constantName = reinterpret_cast<const char*>(constantTableData + constantInfo->name);
 
         switch (constantInfo->registerSet)
         {
@@ -1380,23 +1386,6 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
             constantTableData + constantTableContainer->constantTable.constantInfo + i * sizeof(ConstantInfo));
 
         const char* constantName = reinterpret_cast<const char*>(constantTableData + constantInfo->name);
-
-    #ifdef UNLEASHED_RECOMP
-        if (!isPixelShader)
-        {
-            if (strcmp(constantName, "g_MtxProjection") == 0)
-                hasMtxProjection = true;
-            else if (strcmp(constantName, "g_InstanceTypes") == 0)
-                isMetaInstancer = true;
-            else if (strcmp(constantName, "g_IndexCount") == 0)
-                hasIndexCount = true;
-        }
-        else
-        {
-            if (strcmp(constantName, "g_MtxPrevInvViewProjection") == 0)
-                hasMtxPrevInvViewProjection = true;
-        }
-    #endif
 
         switch (constantInfo->registerSet)
         {
@@ -1770,6 +1759,7 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
     println("\t{0} output = ({0})0;", outputName);
     out += "#endif\n";
 
+#ifdef SPEC_CONSTANT_REVERSE_Z
 #ifdef UNLEASHED_RECOMP
     if (hasMtxProjection)
     {
@@ -1783,6 +1773,12 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
         out += "\tUNROLL for (int iterationIndex = 0; iterationIndex < 2; iterationIndex++)\n";
         out += "\t{\n";
     }
+#else
+    if (!isPixelShader)
+    {
+        specConstantsMask |= SPEC_CONSTANT_REVERSE_Z;
+    }
+#endif
 #endif
 
     if (shaderContainer->definitionTableOffset != NULL)
@@ -1848,7 +1844,7 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
             Interpolator interpolator;
             uint32_t value;
         };
-    
+
         if (isPixelShader)
         {
             value = reinterpret_cast<const PixelShader*>(shader)->interpolators[i];
@@ -1865,7 +1861,7 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
 
     if (!isPixelShader)
     {
-    #ifdef UNLEASHED_RECOMP
+    #if defined(SPEC_CONSTANT_REVERSE_Z) && defined(UNLEASHED_RECOMP)
         if (!hasMtxProjection)
             out += "\toutput.oPos = 0.0;\n";
     #endif
@@ -1904,10 +1900,10 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
     out += "\tfloat ps = 0.0;\n";
     if (isPixelShader)
     {
-#if defined(UNLEASHED_RECOMP) or defined(MARATHON_RECOMP)
+#ifdef SPEC_CONSTANT_ALPHA_TO_COVERAGE
         out += "\tfloat2 pixelCoord = 0.0;\n";
 #endif
-#ifdef MARATHON_RECOMP
+#ifdef SPEC_CONSTANT_CONDITIONAL_RENDERING
         specConstantsMask |= SPEC_CONSTANT_CONDITIONAL_RENDERING;
 
         out += "\tBRANCH if ((g_SpecConstants() & SPEC_CONSTANT_CONDITIONAL_RENDERING))\n";
@@ -2186,7 +2182,7 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
                     }
                     else
                     {
-                    #ifdef UNLEASHED_RECOMP
+                    #ifdef SPEC_CONSTANT_BICUBIC_GI_FILTER
                         if (textureFetch.constIndex == 10) // g_GISampler
                         {
                             specConstantsMask |= SPEC_CONSTANT_BICUBIC_GI_FILTER;
@@ -2247,7 +2243,7 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
                     indent();
                     out += "}\n";
 
-                #if defined(UNLEASHED_RECOMP) or defined(MARATHON_RECOMP)
+                #ifdef SPEC_CONSTANT_ALPHA_TO_COVERAGE
                     specConstantsMask |= SPEC_CONSTANT_ALPHA_TO_COVERAGE;
 
                     indent();
@@ -2266,14 +2262,22 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
                 }
                 else
                 {
-                    out += "\tif (g_ClipPlaneEnabled) output.clipDistance = dot(output.oPos, g_ClipPlane);\n";
-                    out += "\toutput.oPos.xy += g_HalfPixelOffset * output.oPos.w;\n";
+                #if defined(SPEC_CONSTANT_REVERSE_Z) && defined(UNLEASHED_RECOMP)
+                    if (!hasMtxProjection)
+                #endif
+                    {
+                    #if defined(SPEC_CONSTANT_REVERSE_Z) && defined(MARATHON_RECOMP)
+                        out += "\tif (g_SpecConstants() & SPEC_CONSTANT_REVERSE_Z) output.oPos.z = output.oPos.w - output.oPos.z;\n";
+                    #endif
+                        out += "\tif (g_ClipPlaneEnabled) output.clipDistance = dot(output.oPos, g_ClipPlane);\n";
+                        out += "\toutput.oPos.xy += g_HalfPixelOffset * output.oPos.w;\n";
+                    }
                 }
 
                 if (simpleControlFlow)
                 {
                     indent();
-                #ifdef UNLEASHED_RECOMP
+                #if defined(SPEC_CONSTANT_REVERSE_Z) && defined(UNLEASHED_RECOMP)
                     if (hasMtxProjection)
                     {
                         out += "continue;\n";
@@ -2303,14 +2307,18 @@ void ShaderRecompiler::recompile(const uint8_t* shaderData, const std::string_vi
         out += "\t}\n";
     }
 
-#ifdef UNLEASHED_RECOMP
+#if defined(SPEC_CONSTANT_REVERSE_Z) && defined(UNLEASHED_RECOMP)
     if (hasMtxProjection)
+    {
         out += "\t}\n";
+        out += "\tif (g_ClipPlaneEnabled) output.clipDistance = dot(output.oPos, g_ClipPlane);\n";
+        out += "\toutput.oPos.xy += g_HalfPixelOffset * output.oPos.w;\n";
+    }
 #endif
 
     if (!simpleControlFlow)
         out += "\treturn output;\n";
-#ifdef UNLEASHED_RECOMP
+#if defined(SPEC_CONSTANT_REVERSE_Z) && defined(UNLEASHED_RECOMP)
     else if (hasMtxProjection)
         out += "\treturn output;\n";
 #endif

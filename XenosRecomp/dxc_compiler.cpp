@@ -59,10 +59,9 @@ IDxcBlob* DxcCompiler::compile(const std::string& shaderSource, bool compilePixe
 
     args[argCount++] = L"-Qstrip_debug";
 
-#ifdef UNLEASHED_RECOMP
+#if defined(UNLEASHED_RECOMP)
     args[argCount++] = L"-DUNLEASHED_RECOMP";
-#endif
-#ifdef MARATHON_RECOMP
+#elif defined(MARATHON_RECOMP)
     args[argCount++] = L"-DMARATHON_RECOMP";
 #endif
 
