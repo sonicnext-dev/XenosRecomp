@@ -2,7 +2,7 @@
 
 XenosRecomp is a tool that converts Xbox 360 shader binaries to HLSL. The resulting files can be recompiled to DXIL and SPIR-V using the DirectX Shader Compiler (DXC) for use in Direct3D 12 (D3D12) and Vulkan.
 
-The current implementation is designed around [Unleashed Recompiled](https://github.com/hedge-dev/UnleashedRecomp), a recompilation project that implements a translation layer for the renderer rather than emulating the Xbox 360 GPU. Unleashed Recompiled specific implementations are placed under the `UNLEASHED_RECOMP` preprocessor macro.
+The current implementation is designed around [Unleashed Recompiled](https://github.com/hedge-dev/UnleashedRecomp) and [Marathon Recompiled](https://github.com/sonicnext-dev/MarathonRecomp), recompilation projects that implements a translation layer for the renderer rather than emulating the Xbox 360 GPU. Unleashed Recompiled specific implementations are placed under the `UNLEASHED_RECOMP` preprocessor macro, and Marathon Recompiled specific implementations are placed under the `MARATHON_RECOMP` preprocessor macro. Those may in turn enable support for specific specialization constants, the implementations of which are guarded by their own macros.
 
 Users are expected to modify the recompiler to fit their needs. **Do not expect the recompiler to work out of the box.**
 

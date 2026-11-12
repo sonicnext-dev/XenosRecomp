@@ -2,6 +2,7 @@
 
 #include "shader.h"
 #include "shader_code.h"
+#include "shader_common.h"
 
 struct StringBuffer
 {
@@ -34,7 +35,7 @@ struct ShaderRecompiler : StringBuffer
     std::unordered_map<uint32_t, uint32_t> ifEndLabels;
     uint32_t specConstantsMask = 0;
 
-#ifdef UNLEASHED_RECOMP
+#if defined(SPEC_CONSTANT_REVERSE_Z) && defined(UNLEASHED_RECOMP)
     bool hasMtxProjection = false;
     bool hasMtxPrevInvViewProjection = false;
 #endif
